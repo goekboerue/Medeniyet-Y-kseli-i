@@ -388,7 +388,7 @@ export const CivilizationVisual: React.FC<CivilizationVisualProps> = ({ era, dom
   };
 
   return (
-    <div className="w-full h-64 md:h-80 lg:h-96 bg-gray-900 rounded-2xl border-2 border-gray-700 shadow-2xl overflow-hidden relative transition-all duration-500 group">
+    <div className="w-full h-40 md:h-52 bg-gray-900 rounded-xl border border-gray-700/50 shadow-xl overflow-hidden relative transition-all duration-500 group">
        {era === Era.TRIBAL && renderTribal()}
        {era === Era.AGRICULTURAL && renderAgricultural()}
        {era === Era.INDUSTRIAL && renderIndustrial()}
@@ -398,23 +398,13 @@ export const CivilizationVisual: React.FC<CivilizationVisualProps> = ({ era, dom
        <div className="absolute inset-0 shadow-[inset_0_0_60px_rgba(0,0,0,0.8)] pointer-events-none"></div>
        
        {/* Climate Badge */}
-       <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest text-white/90 border border-white/10 flex items-center gap-2 shadow-lg z-10">
-          {climate === Climate.ARCTIC && <Snowflake size={12} className="text-blue-200" />}
-          {climate === Climate.TROPICAL && <CloudRain size={12} className="text-blue-400" />}
-          {climate === Climate.ARID && <Wind size={12} className="text-orange-300" />}
-          {climate === Climate.TEMPERATE && <Trees size={12} className="text-green-400" />}
+       <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full text-[9px] uppercase tracking-widest text-white/90 border border-white/10 flex items-center gap-1.5 shadow-lg z-10">
+          {climate === Climate.ARCTIC && <Snowflake size={10} className="text-blue-200" />}
+          {climate === Climate.TROPICAL && <CloudRain size={10} className="text-blue-400" />}
+          {climate === Climate.ARID && <Wind size={10} className="text-orange-300" />}
+          {climate === Climate.TEMPERATE && <Trees size={10} className="text-green-400" />}
           <span>{climate}</span>
        </div>
-
-       {/* Style Badge (Optional, to reinforce feedback) */}
-       {(isMilitary || isEconomic) && (
-          <div className={`absolute top-4 left-4 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-widest text-white/90 border flex items-center gap-2 shadow-lg z-10
-             ${isMilitary ? 'bg-red-900/60 border-red-500/30' : 'bg-amber-900/60 border-amber-500/30'}
-          `}>
-             {isMilitary ? <Swords size={12} /> : <Coins size={12} />}
-             <span>{isMilitary ? 'Askeri' : 'Ekonomik'}</span>
-          </div>
-       )}
     </div>
   );
 };
