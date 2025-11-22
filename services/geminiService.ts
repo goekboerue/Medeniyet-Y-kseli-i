@@ -1,11 +1,11 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { GameState, Era, Crisis, BuildingStyle } from "../types";
 
 // Initialize the Gemini API client
-// Note: In a real production app, this would likely be proxied through a backend 
-// to keep the key secret, but for this frontend-only demo, we use process.env.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// We use a fallback empty string to prevent the app from crashing immediately 
+// if the environment variable is not set in the deployment environment.
+// Calls will fail gracefully later if the key is invalid.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 
 export const generateChronicle = async (gameState: GameState): Promise<string> => {
   try {
@@ -39,7 +39,7 @@ export const generateChronicle = async (gameState: GameState): Promise<string> =
     return response.text || "Tarihçiler bu dönemi sessizlikle anıyor...";
   } catch (error) {
     console.error("Gemini generation error:", error);
-    return "Kadim parşömenler okunamıyor (Bağlantı hatası).";
+    return "Kadim parşömenler okunamıyor (Bağlantı hatası veya API Anahtarı eksik).";
   }
 };
 
