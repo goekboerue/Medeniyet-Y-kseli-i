@@ -1,6 +1,7 @@
+
 import React, { useRef, useEffect } from 'react';
 import { LogEntry } from '../types';
-import { Scroll, Sparkles } from 'lucide-react';
+import { Scroll, Sparkles, ChevronDown, Activity } from 'lucide-react';
 
 interface LogPanelProps {
   logs: LogEntry[];
@@ -18,44 +19,47 @@ export const LogPanel: React.FC<LogPanelProps> = ({ logs, onGenerateHistory, isG
   const getLogStyle = (type: LogEntry['type']) => {
       switch (type) {
           case 'ai':
-              return 'bg-purple-900/20 border border-purple-700/30 text-purple-100';
+              return 'text-purple-300 border-l-2 border-purple-500 pl-2';
           case 'crisis':
-              return 'bg-red-900/20 border border-red-700/30 text-red-200 font-semibold';
+              return 'text-red-400 font-bold border-l-2 border-red-500 pl-2';
           case 'warning':
-              return 'bg-orange-900/20 border border-orange-700/30 text-orange-200 font-mono text-xs';
+              return 'text-orange-300 border-l-2 border-orange-500 pl-2';
+          case 'tech':
+              return 'text-cyan-300 border-l-2 border-cyan-500 pl-2';
           default:
-              return 'bg-gray-800 border border-gray-700 text-gray-300';
+              return 'text-gray-300';
       }
   };
 
   return (
-    <div className="bg-gray-900/80 border border-gray-700 rounded-xl flex flex-col h-[400px] lg:h-full sticky top-4 shadow-2xl backdrop-blur-sm">
-      <div className="p-4 border-b border-gray-700 bg-gray-800/50 rounded-t-xl flex justify-between items-center">
-        <h2 className="text-lg font-cinzel font-bold text-gray-200 flex items-center gap-2">
-          <Scroll size={18} />
-          Medeniyet Tarihçesi
-        </h2>
-        <button
-          onClick={onGenerateHistory}
-          disabled={isGenerating}
-          className="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 disabled:bg-gray-600 text-xs text-white rounded-lg flex items-center gap-1 transition-all shadow-lg hover:shadow-purple-500/20"
-        >
-          <Sparkles size={14} />
-          {isGenerating ? 'Yazılıyor...' : 'Tarihi Yaz'}
-        </button>
-      </div>
+    <div className="w-full h-[160px] bg-gray-900 border-t border-gray-700 flex flex-col shadow-[0_-5px_15px_rgba(0,0,0,0.5)]">
       
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-800/50 border-b border-gray-700 text-xs">
+         <div className="flex items-center gap-2 text-gray-400 font-cinzel font-bold">
+            <Activity size={14} />
+            İmparatorluk Günlükleri
+         </div>
+         <button
+            onClick={onGenerateHistory}
+            disabled={isGenerating}
+            className="text-purple-400 hover:text-purple-300 disabled:text-gray-600 text-[10px] flex items-center gap-1 transition-colors uppercase tracking-wider"
+          >
+            <Sparkles size={12} />
+            {isGenerating ? 'Yazılıyor...' : 'Tarihi Yaz'}
+          </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-3 font-mono text-sm space-y-2 bg-black/40">
         {logs.length === 0 && (
-            <div className="text-gray-500 text-center italic mt-10">Henüz bir tarih yazılmadı...</div>
+            <div className="text-gray-600 italic text-xs">Henüz bir kayıt yok...</div>
         )}
         {logs.map((log) => (
           <div 
             key={log.id} 
-            className={`p-3 rounded-lg text-sm leading-relaxed animate-fade-in ${getLogStyle(log.type)}`}
+            className={`py-1 animate-fade-in ${getLogStyle(log.type)}`}
           >
-            <div className="text-[10px] uppercase tracking-wider opacity-50 mb-1 font-mono">{log.timestamp}</div>
-            {log.text}
+            <span className="text-gray-600 text-[10px] mr-3 select-none">[{log.timestamp}]</span>
+            <span>{log.text}</span>
           </div>
         ))}
         <div ref={bottomRef} />

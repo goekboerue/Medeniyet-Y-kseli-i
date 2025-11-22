@@ -470,102 +470,102 @@ const App: React.FC = () => {
         onExpandLand={handleExpandLand}
       />
 
-      <div className="flex-1 container mx-auto max-w-7xl px-2 lg:px-4 pb-2 overflow-hidden flex flex-col">
+      {/* Main Content Area (Scrolls independently of Logs) */}
+      <div className="flex-1 flex flex-col min-h-0">
         
-        {renderHeader()}
-
-        {/* Dashboard Grid */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 mt-4 overflow-hidden min-h-0">
-           
-           {/* Left Column: Visuals & Info (Fixed non-scrollable container generally, content scrolls if needed) */}
-           <div className="lg:col-span-5 flex flex-col gap-4 min-h-0 overflow-y-auto no-scrollbar pb-20 lg:pb-0">
-              
-              <div className="shrink-0">
-                <CivilizationVisual era={era} dominantStyle={dominantStyle} climate={climate} />
-              </div>
-
-              {activeCrisis && (
-                <div className="shrink-0">
-                   <CrisisAlert 
-                      crisis={activeCrisis} 
-                      resources={resources} 
-                      onResolve={() => handleResolveCrisis('solve')}
-                      onIgnore={() => handleResolveCrisis('ignore')}
-                   />
-                </div>
-              )}
-
-              <div className="flex-1 min-h-[250px] bg-gray-900/50 rounded-xl border border-gray-800 overflow-hidden flex flex-col">
-                 <LogPanel 
-                    logs={logs} 
-                    onGenerateHistory={handleGenerateHistory} 
-                    isGenerating={isGeneratingAI}
-                 />
-              </div>
-           </div>
-
-           {/* Right Column: Main Action Area (Tabbed) */}
-           <div className="lg:col-span-7 flex flex-col bg-gray-900/80 rounded-xl border border-gray-800 overflow-hidden shadow-2xl min-h-0">
-              
-              {/* Tabs */}
-              <div className="flex border-b border-gray-800">
-                 <button 
-                    onClick={() => setActiveTab('production')}
-                    className={`flex-1 py-3 flex items-center justify-center gap-2 font-cinzel font-bold transition-colors
-                       ${activeTab === 'production' ? 'bg-gray-800 text-amber-400 border-b-2 border-amber-400' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}
-                    `}
-                 >
-                    <Hammer size={18} />
-                    Üretim
-                 </button>
-                 <button 
-                    onClick={() => setActiveTab('research')}
-                    className={`flex-1 py-3 flex items-center justify-center gap-2 font-cinzel font-bold transition-colors
-                       ${activeTab === 'research' ? 'bg-gray-800 text-purple-400 border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}
-                    `}
-                 >
-                    <FlaskConical size={18} />
-                    Araştırma
-                 </button>
-              </div>
-
-              {/* Tab Content Area */}
-              <div className="flex-1 overflow-y-auto p-4 bg-black/20">
-                  {activeTab === 'production' ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-20 lg:pb-0">
-                         {buildings.filter(b => b.era === era || b.count > 0).map(building => (
-                            <BuildingCard
-                              key={building.id}
-                              building={building}
-                              resources={resources}
-                              availableWorkers={availableWorkers}
-                              onBuy={handleBuyBuilding}
-                              onWorkerChange={handleWorkerAssignment}
-                              unlockedTechs={unlockedTechs}
-                              allTechs={TECHNOLOGIES}
-                            />
-                          ))}
-                          {buildings.filter(b => b.era === era || b.count > 0).length === 0 && (
-                             <div className="col-span-full text-center py-10 text-gray-500 italic">
-                                Bu çağda inşa edilecek yeni bir yapı yok.
-                             </div>
-                          )}
-                      </div>
-                  ) : (
-                      <div className="pb-20 lg:pb-0">
-                          <TechTree 
-                            technologies={TECHNOLOGIES} 
-                            unlockedTechIds={unlockedTechs} 
-                            resources={resources}
-                            currentEra={era}
-                            onResearch={handleResearch}
-                          />
-                      </div>
-                  )}
-              </div>
-           </div>
-
+        <div className="container mx-auto max-w-7xl px-2 lg:px-4 pt-2">
+           {renderHeader()}
         </div>
+
+        {/* Middle Section: Visuals and Actions */}
+        <div className="flex-1 overflow-y-auto px-2 lg:px-4 py-2">
+          <div className="container mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-4">
+             
+             {/* Left Side: Visuals & Status */}
+             <div className="lg:col-span-5 flex flex-col gap-4">
+                <CivilizationVisual era={era} dominantStyle={dominantStyle} climate={climate} />
+                
+                {activeCrisis && (
+                  <div className="animate-bounce-in">
+                     <CrisisAlert 
+                        crisis={activeCrisis} 
+                        resources={resources} 
+                        onResolve={() => handleResolveCrisis('solve')}
+                        onIgnore={() => handleResolveCrisis('ignore')}
+                     />
+                  </div>
+                )}
+             </div>
+
+             {/* Right Side: Interaction Tabs */}
+             <div className="lg:col-span-7 flex flex-col bg-gray-900/50 rounded-xl border border-gray-800 overflow-hidden">
+                {/* Tabs */}
+                <div className="flex border-b border-gray-800 bg-gray-900/80 sticky top-0 z-10">
+                   <button 
+                      onClick={() => setActiveTab('production')}
+                      className={`flex-1 py-3 flex items-center justify-center gap-2 font-cinzel font-bold transition-colors
+                         ${activeTab === 'production' ? 'bg-gray-800 text-amber-400 border-b-2 border-amber-400' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}
+                      `}
+                   >
+                      <Hammer size={18} />
+                      Üretim
+                   </button>
+                   <button 
+                      onClick={() => setActiveTab('research')}
+                      className={`flex-1 py-3 flex items-center justify-center gap-2 font-cinzel font-bold transition-colors
+                         ${activeTab === 'research' ? 'bg-gray-800 text-purple-400 border-b-2 border-purple-400' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}
+                      `}
+                   >
+                      <FlaskConical size={18} />
+                      Araştırma
+                   </button>
+                </div>
+
+                {/* Tab Content */}
+                <div className="p-4">
+                    {activeTab === 'production' ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                           {buildings.filter(b => b.era === era || b.count > 0).map(building => (
+                              <BuildingCard
+                                key={building.id}
+                                building={building}
+                                resources={resources}
+                                availableWorkers={availableWorkers}
+                                onBuy={handleBuyBuilding}
+                                onWorkerChange={handleWorkerAssignment}
+                                unlockedTechs={unlockedTechs}
+                                allTechs={TECHNOLOGIES}
+                              />
+                            ))}
+                            {buildings.filter(b => b.era === era || b.count > 0).length === 0 && (
+                               <div className="col-span-full text-center py-10 text-gray-500 italic">
+                                  Bu çağda inşa edilecek yeni bir yapı yok.
+                               </div>
+                            )}
+                        </div>
+                    ) : (
+                        <TechTree 
+                          technologies={TECHNOLOGIES} 
+                          unlockedTechIds={unlockedTechs} 
+                          resources={resources}
+                          currentEra={era}
+                          onResearch={handleResearch}
+                        />
+                    )}
+                </div>
+             </div>
+          </div>
+        </div>
+
+        {/* Bottom Section: Logs (Fixed height footer) */}
+        <div className="shrink-0 border-t border-gray-800 bg-gray-950">
+            <LogPanel 
+              logs={logs} 
+              onGenerateHistory={handleGenerateHistory} 
+              isGenerating={isGeneratingAI}
+            />
+        </div>
+
       </div>
     </div>
   );
