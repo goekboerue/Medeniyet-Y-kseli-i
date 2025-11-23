@@ -1,12 +1,13 @@
 
-import { Building, Era, Crisis, BuildingStyle, Technology } from './types';
+import { Building, Era, Crisis, BuildingStyle, Technology, Rival, RelationStatus } from './types';
 
 export const INITIAL_RESOURCES = {
   population: 5,
   gold: 0,
   land: 0,
-  maxLand: 60, // Slightly increased initial land
+  maxLand: 60,
   science: 0,
+  soldiers: 0,
 };
 
 export const ERA_REQUIREMENTS = {
@@ -15,6 +16,15 @@ export const ERA_REQUIREMENTS = {
   [Era.INDUSTRIAL]: { gold: 5000, pop: 100 },
   [Era.TECHNOLOGICAL]: { gold: 50000, pop: 500 },
 };
+
+export const RIVAL_TEMPLATES: Partial<Rival>[] = [
+  { name: 'Kızıl Balta Kabilesi', attitude: 'AGGRESSIVE' },
+  { name: 'Nehir Tüccarları', attitude: 'TRADER' },
+  { name: 'Dağ Bekçileri', attitude: 'DEFENSIVE' },
+  { name: 'Gölge İmparatorluğu', attitude: 'AGGRESSIVE' },
+  { name: 'Güneş Rahipleri', attitude: 'TRADER' },
+  { name: 'Demir Lejyonu', attitude: 'DEFENSIVE' },
+];
 
 export const TECHNOLOGIES: Technology[] = [
   // Tribal
@@ -56,10 +66,11 @@ export const TECHNOLOGIES: Technology[] = [
   {
     id: 'masonry',
     name: 'Duvarcılık',
-    description: 'Taş yapılar ve savunma.',
+    description: 'Taş yapılar ve savunma (+10 Ordu Gücü).',
     cost: 150,
     era: Era.AGRICULTURAL,
     unlocksBuilding: 'barracks',
+    bonus: { military: 10 }
   },
   {
     id: 'cartography',
@@ -86,6 +97,15 @@ export const TECHNOLOGIES: Technology[] = [
     cost: 250,
     era: Era.AGRICULTURAL,
     unlocksBuilding: 'market',
+  },
+  {
+    id: 'bronze_working',
+    name: 'Bronz İşleme',
+    description: 'Daha güçlü silahlar. (+20 Ordu Gücü)',
+    cost: 350,
+    era: Era.AGRICULTURAL,
+    bonus: { military: 20 },
+    prerequisite: 'masonry'
   },
 
   // Industrial
@@ -124,6 +144,15 @@ export const TECHNOLOGIES: Technology[] = [
     era: Era.INDUSTRIAL,
     unlocksBuilding: 'mine',
   },
+  {
+    id: 'ballistics',
+    name: 'Balistik',
+    description: 'Uzun menzilli topçular. (+100 Ordu Gücü)',
+    cost: 2000,
+    era: Era.INDUSTRIAL,
+    bonus: { military: 100 },
+    prerequisite: 'metallurgy'
+  },
 
   // Technological
   {
@@ -134,6 +163,15 @@ export const TECHNOLOGIES: Technology[] = [
     era: Era.TECHNOLOGICAL,
     unlocksBuilding: 'lab',
   },
+  {
+    id: 'drones',
+    name: 'Otonom Drone',
+    description: 'İnsansız savaş araçları. (+500 Ordu Gücü)',
+    cost: 15000,
+    era: Era.TECHNOLOGICAL,
+    bonus: { military: 500 },
+    prerequisite: 'computing'
+  },
 ];
 
 export const CRISIS_EVENTS: Crisis[] = [
@@ -143,7 +181,7 @@ export const CRISIS_EVENTS: Crisis[] = [
     name: 'Vahşi Hayvan Saldırısı',
     description: 'Köyün etrafında kurt sürüleri dolaşıyor. Avcıları organize etmezsek halk zarar görecek.',
     era: Era.TRIBAL,
-    cost: { gold: 10 },
+    cost: { gold: 10, soldiers: 1 },
     penalty: { population: 2 },
   },
   {
@@ -234,7 +272,7 @@ export const BUILDING_DEFINITIONS: Omit<Building, 'count' | 'assignedWorkers'>[]
     name: 'Av Sahası',
     description: 'Düzenli yiyecek ve deri. Askeri disiplinin temelleri.',
     baseCost: { gold: 25, land: 5, workers: 2 },
-    production: { gold: 1 },
+    production: { gold: 1, military: 1 },
     era: Era.TRIBAL,
     icon: '🏹',
     depletionChance: 0.0005,
@@ -290,9 +328,9 @@ export const BUILDING_DEFINITIONS: Omit<Building, 'count' | 'assignedWorkers'>[]
   {
     id: 'barracks',
     name: 'Kışla',
-    description: 'Savaşçı eğitimi. Toprak güvenliğini sağlar.',
+    description: 'Savaşçı eğitimi. Güçlü bir ordu için temel.',
     baseCost: { gold: 400, land: 15, workers: 10 },
-    production: { gold: 2 },
+    production: { gold: -2, military: 5 }, // Consumes gold to maintain army
     era: Era.AGRICULTURAL,
     icon: '⚔️',
     style: BuildingStyle.MILITARY,
@@ -327,9 +365,9 @@ export const BUILDING_DEFINITIONS: Omit<Building, 'count' | 'assignedWorkers'>[]
   {
     id: 'fortress',
     name: 'Çelik Hisar',
-    description: 'Aşılmaz duvarlar. Medeniyetin gücünü gösterir.',
+    description: 'Aşılmaz duvarlar. Düşmana korku salar.',
     baseCost: { gold: 5000, land: 25, workers: 40 },
-    production: { population: 2 },
+    production: { population: 2, military: 20 },
     era: Era.INDUSTRIAL,
     icon: '🏰',
     style: BuildingStyle.MILITARY,

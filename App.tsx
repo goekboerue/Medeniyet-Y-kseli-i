@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { GameState, ResourceType, Era, LogEntry, Resources, Crisis, BuildingStyle, Technology, Climate } from './types';
-import { INITIAL_RESOURCES, BUILDING_DEFINITIONS, ERA_REQUIREMENTS, CRISIS_EVENTS, TICK_RATE_MS, TECHNOLOGIES } from './constants';
+import { GameState, ResourceType, Era, LogEntry, Resources, Crisis, BuildingStyle, Technology, Climate, Rival, RelationStatus } from './types';
+import { INITIAL_RESOURCES, BUILDING_DEFINITIONS, ERA_REQUIREMENTS, CRISIS_EVENTS, TICK_RATE_MS, TECHNOLOGIES, RIVAL_TEMPLATES } from './constants';
 import { ResourcePanel } from './components/ResourcePanel';
 import { BuildingCard } from './components/BuildingCard';
 import { LogPanel } from './components/LogPanel';
@@ -10,10 +10,11 @@ import { CivilizationVisual } from './components/CivilizationVisual';
 import { EraTransitionOverlay } from './components/EraTransitionOverlay';
 import { TechTree } from './components/TechTree';
 import { SnapshotModal } from './components/SnapshotModal';
+import { DiplomacyPanel } from './components/DiplomacyPanel';
 import { generateChronicle, generateEraTransition, generateCrisisLog, generateEmpireSnapshot } from './services/geminiService';
-import { Pickaxe, Globe, Flag, ChevronRight, BrainCircuit, Camera, CloudSun, Users, ArrowRight, Lock, Palette, LayoutDashboard, FlaskConical, Hammer, Save } from 'lucide-react';
+import { Pickaxe, Globe, Flag, ChevronRight, BrainCircuit, Camera, CloudSun, Users, ArrowRight, Lock, Palette, LayoutDashboard, FlaskConical, Hammer, Save, Handshake } from 'lucide-react';
 
-const SAVE_KEY = 'civilization_rise_save_v1';
+const SAVE_KEY = 'civilization_rise_save_v2'; // Version bumped for new fields
 
 const App: React.FC = () => {
   // --- State ---
@@ -22,6 +23,7 @@ const App: React.FC = () => {
   const [unlockedTechs, setUnlockedTechs] = useState<string[]>([]);
   const [era, setEra] = useState<Era>(Era.TRIBAL);
   const [climate, setClimate] = useState<Climate>(Climate.TEMPERATE);
+  const [rivals, setRivals] = useState<Rival[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [gameTime, setGameTime] = useState(0);
@@ -30,12 +32,27 @@ const App: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   
   // UI State
-  const [activeTab, setActiveTab] = useState<'production' | 'research'>('production');
+  const [activeTab, setActiveTab] = useState<'production' | 'research' | 'diplomacy'>('production');
   
   // Snapshot State
   const [isSnapshotModalOpen, setIsSnapshotModalOpen] = useState(false);
   const [snapshotImage, setSnapshotImage] = useState<string | null>(null);
   const [isGeneratingSnapshot, setIsGeneratingSnapshot] = useState(false);
+
+  // --- Helper to init rivals ---
+  const generateRandomRivals = () => {
+      const shuffled = [...RIVAL_TEMPLATES].sort(() => 0.5 - Math.random());
+      return shuffled.slice(0, 3).map((template, idx) => ({
+          id: `rival-${idx}`,
+          name: template.name || `Kabile ${idx}`,
+          strength: 10 + Math.random() * 20,
+          wealth: 50 + Math.random() * 100,
+          relation: RelationStatus.NEUTRAL,
+          attitude: template.attitude || 'DEFENSIVE',
+          era: Era.TRIBAL,
+          lastInteractionTurn: 0
+      } as Rival));
+  };
 
   // --- Load Game Logic ---
   useEffect(() => {
@@ -43,12 +60,14 @@ const App: React.FC = () => {
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-        if (parsed.resources) setResources(parsed.resources);
+        if (parsed.resources) setResources({ ...INITIAL_RESOURCES, ...parsed.resources });
         if (parsed.unlockedTechs) setUnlockedTechs(parsed.unlockedTechs);
         if (parsed.era) setEra(parsed.era);
         if (parsed.climate) setClimate(parsed.climate);
         if (parsed.gameTime) setGameTime(parsed.gameTime);
         if (parsed.logs) setLogs(parsed.logs);
+        if (parsed.rivals && parsed.rivals.length > 0) setRivals(parsed.rivals);
+        else setRivals(generateRandomRivals());
         
         // Merge saved buildings with definitions to ensure structure matches
         if (parsed.buildings) {
@@ -59,18 +78,20 @@ const App: React.FC = () => {
         }
       } catch (e) {
         console.error("Save file corrupted, starting fresh.", e);
+        setRivals(generateRandomRivals());
       }
     } else {
        // Initialize random climate for new game
        const climates = Object.values(Climate);
        const randomClimate = climates[Math.floor(Math.random() * climates.length)];
        setClimate(randomClimate);
+       setRivals(generateRandomRivals());
        
        setLogs([
         { 
           id: 'init', 
           timestamp: 'Başlangıç', 
-          text: `Kabileniz, ${randomClimate} iklimin hakim olduğu vahşi topraklarda küçük bir ateş yaktı. Hayatta kalma mücadelesi başlıyor.`, 
+          text: `Kabileniz, ${randomClimate} iklimin hakim olduğu vahşi topraklarda küçük bir ateş yaktı.`, 
           type: 'game' 
         }
       ]);
@@ -90,18 +111,17 @@ const App: React.FC = () => {
         era,
         climate,
         gameTime,
+        rivals,
         logs: logs.slice(-50) // Only save last 50 logs to keep storage light
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(stateToSave));
     }, 2000); // Debounce save every 2 seconds
 
     return () => clearTimeout(saveTimer);
-  }, [resources, buildings, unlockedTechs, era, climate, gameTime, logs, isLoaded]);
+  }, [resources, buildings, unlockedTechs, era, climate, gameTime, logs, isLoaded, rivals]);
 
 
   // --- Helper: Scaling Logic ---
-  // Returns the multiplier based on building count to create dramatic increases
-  // Example: 10 buildings = 1.6x multiplier, 50 buildings = 11.4x multiplier
   const getEfficiencyMultiplier = useCallback((count: number) => {
      if (count <= 1) return 1;
      return Math.pow(1.05, count); 
@@ -113,6 +133,27 @@ const App: React.FC = () => {
   }, [buildings]);
 
   const availableWorkers = Math.floor(resources.population) - calculateUsedWorkers();
+
+  const calculateMilitaryStrength = useCallback(() => {
+      let strength = resources.soldiers * 2; // Base soldier power
+      
+      // Add building bonuses
+      buildings.forEach(b => {
+          if (b.production.military && b.count > 0) {
+              const effectiveBuildings = b.baseCost.workers > 0 ? (b.assignedWorkers / b.baseCost.workers) : b.count;
+              strength += b.production.military * effectiveBuildings;
+          }
+      });
+
+      // Add tech bonuses
+      TECHNOLOGIES.forEach(t => {
+          if (unlockedTechs.includes(t.id) && t.bonus?.military) {
+              strength += t.bonus.military;
+          }
+      });
+
+      return strength;
+  }, [resources.soldiers, buildings, unlockedTechs]);
 
   const calculateIncome = useCallback(() => {
     return buildings.reduce((total, b) => {
@@ -143,7 +184,6 @@ const App: React.FC = () => {
         ? b.assignedWorkers / b.baseCost.workers
         : b.count;
       
-      // Less aggressive multiplier for population to avoid explosion
       const multiplier = Math.pow(1.02, b.count); 
       return total + (b.production.population || 0) * effectiveBuildings * multiplier;
     }, 0);
@@ -151,7 +191,6 @@ const App: React.FC = () => {
   }, [buildings, resources.population]);
 
 
-  // Determine Civ Style (Military vs Economic)
   const dominantStyle = useMemo(() => {
     let mil = 0;
     let eco = 0;
@@ -163,7 +202,6 @@ const App: React.FC = () => {
     return mil >= eco ? BuildingStyle.MILITARY : BuildingStyle.ECONOMIC;
   }, [buildings]);
 
-  // Determine Next Era & Progress
   const nextEraInfo = useMemo(() => {
     if (era === Era.TRIBAL) return { id: Era.AGRICULTURAL, req: ERA_REQUIREMENTS[Era.AGRICULTURAL] };
     if (era === Era.AGRICULTURAL) return { id: Era.INDUSTRIAL, req: ERA_REQUIREMENTS[Era.INDUSTRIAL] };
@@ -172,10 +210,10 @@ const App: React.FC = () => {
   }, [era]);
 
   const getEmpireSummary = () => {
-      return `🏛️ MEDENİYET DURUM RAPORU\n📅 Çağ: ${era}\n🌍 İklim: ${climate}\n👥 Nüfus: ${Math.floor(resources.population)}\n💰 Hazine: ${Math.floor(resources.gold)} Altın\n🏗️ En Büyük Yapı: ${buildings.sort((a,b) => b.count - a.count)[0]?.name || 'Yok'}\n\nBenim imparatorluğum yükseliyor! Seninkinin durumu ne? #MedeniyetYükselişi`;
+      return `🏛️ MEDENİYET DURUM RAPORU\n📅 Çağ: ${era}\n🌍 İklim: ${climate}\n👥 Nüfus: ${Math.floor(resources.population)}\n⚔️ Ordu Gücü: ${Math.floor(calculateMilitaryStrength())}\n\nBenim imparatorluğum yükseliyor! #MedeniyetYükselişi`;
   };
 
-  const addLog = (text: string, type: 'game' | 'ai' | 'crisis' | 'warning' | 'tech' = 'game') => {
+  const addLog = (text: string, type: 'game' | 'ai' | 'crisis' | 'warning' | 'tech' | 'war' = 'game') => {
     setLogs(prev => [
       ...prev,
       {
@@ -187,13 +225,118 @@ const App: React.FC = () => {
     ]);
   };
 
-  // --- Actions ---
+  // --- Diplomacy / War Actions ---
+
+  const handleRecruitSoldier = (amount: number) => {
+      const GOLD_COST = 50;
+      const POP_COST = 1;
+      
+      if (resources.gold >= GOLD_COST * amount && resources.population >= POP_COST * amount) {
+          setResources(prev => ({
+              ...prev,
+              gold: prev.gold - (GOLD_COST * amount),
+              population: prev.population - (POP_COST * amount),
+              soldiers: (prev.soldiers || 0) + amount
+          }));
+          addLog(`${amount} yeni asker orduya katıldı.`, 'game');
+      }
+  };
+
+  const handleAttackRival = (rivalId: string) => {
+      const rival = rivals.find(r => r.id === rivalId);
+      if (!rival) return;
+
+      const myStrength = calculateMilitaryStrength();
+      const rivalStrength = rival.strength;
+      
+      // Determine outcome (simple logic for now)
+      const advantage = myStrength / Math.max(1, rivalStrength);
+      const randomFactor = Math.random() * 0.4 + 0.8; // 0.8 to 1.2
+      const score = advantage * randomFactor;
+
+      if (score > 1.1) {
+          // Victory
+          const lootGold = Math.floor(rival.wealth * 0.3);
+          const lootLand = 5;
+          setResources(prev => ({
+              ...prev,
+              gold: prev.gold + lootGold,
+              maxLand: prev.maxLand + lootLand,
+              soldiers: Math.max(0, Math.floor((prev.soldiers || 0) * 0.95)) // 5% casualties
+          }));
+          setRivals(prev => prev.map(r => r.id === rivalId ? { 
+              ...r, 
+              strength: r.strength * 0.7, 
+              wealth: r.wealth * 0.7,
+              relation: RelationStatus.WAR 
+          } : r));
+          addLog(`ZAFER! ${rival.name} ordusu bozguna uğratıldı. ${lootGold} altın ve toprak ele geçirildi.`, 'war');
+      } else {
+          // Defeat
+          setResources(prev => ({
+              ...prev,
+              soldiers: Math.max(0, Math.floor((prev.soldiers || 0) * 0.7)) // 30% casualties
+          }));
+          setRivals(prev => prev.map(r => r.id === rivalId ? { 
+              ...r, 
+              relation: RelationStatus.WAR 
+          } : r));
+          addLog(`YENİLGİ! ${rival.name} saldırısı başarısız oldu. Ağır kayıplar verildi.`, 'war');
+      }
+  };
+
+  const handleTradeRival = (rivalId: string) => {
+      const cost = 100;
+      if (resources.gold < cost) return;
+
+      const rival = rivals.find(r => r.id === rivalId);
+      if (!rival) return;
+
+      // Reward: Either science or land info
+      const isScience = Math.random() > 0.5;
+      const rewardAmount = isScience ? 20 : 2;
+      
+      setResources(prev => ({
+          ...prev,
+          gold: prev.gold - cost,
+          science: isScience ? prev.science + rewardAmount : prev.science,
+          maxLand: !isScience ? prev.maxLand + rewardAmount : prev.maxLand
+      }));
+      
+      setRivals(prev => prev.map(r => r.id === rivalId ? { 
+        ...r, 
+        wealth: r.wealth + 50,
+        relation: r.relation === RelationStatus.WAR ? RelationStatus.HOSTILE : RelationStatus.NEUTRAL
+      } : r));
+
+      addLog(`${rival.name} ile ticaret yapıldı. ${isScience ? 'Bilgi' : 'Harita'} alındı.`, 'game');
+  };
+
+  const handleImproveRelations = (rivalId: string) => {
+      const cost = 200;
+      if (resources.gold < cost) return;
+
+      setResources(prev => ({ ...prev, gold: prev.gold - cost }));
+      setRivals(prev => prev.map(r => {
+          if (r.id === rivalId) {
+              let newRel = r.relation;
+              if (r.relation === RelationStatus.WAR) newRel = RelationStatus.HOSTILE;
+              else if (r.relation === RelationStatus.HOSTILE) newRel = RelationStatus.NEUTRAL;
+              else if (r.relation === RelationStatus.NEUTRAL) newRel = RelationStatus.FRIENDLY;
+              return { ...r, relation: newRel, wealth: r.wealth + 100 };
+          }
+          return r;
+      }));
+      addLog(`Hediye gönderildi. İlişkiler yumuşuyor.`, 'game');
+  };
+
+  // --- Other Actions ---
 
   const handleManualGather = () => {
     const chance = Math.random();
     setResources(prev => ({
       ...prev,
-      gold: prev.gold + 1 + (prev.gold * 0.01), // Manual gather also scales slightly with wealth
+      gold: prev.gold + 1 + (prev.gold * 0.01),
       maxLand: (prev.land >= prev.maxLand && chance > 0.98) ? prev.maxLand + 1 : prev.maxLand,
       land: (prev.land < prev.maxLand && chance > 0.8) ? prev.land + 1 : prev.land,
       science: (chance > 0.6) ? prev.science + 1 + (prev.science * 0.005) : prev.science
@@ -203,7 +346,6 @@ const App: React.FC = () => {
   const handleExpandLand = () => {
     const expansionAmount = 5;
     const cost = Math.floor(resources.maxLand * 2.5); 
-
     if (resources.gold >= cost) {
       setResources(prev => ({
         ...prev,
@@ -234,20 +376,15 @@ const App: React.FC = () => {
         if (b.id === buildingId) {
           let newAssigned = b.assignedWorkers;
           const workersNeeded = b.baseCost.workers;
-          
           if (workersNeeded > 0) {
              const currentlyAvailable = Math.floor(resources.population) - prev.reduce((sum, item) => sum + item.assignedWorkers, 0);
              const toAssign = Math.min(currentlyAvailable, workersNeeded);
-             if (toAssign > 0) {
-               newAssigned += toAssign;
-             }
+             if (toAssign > 0) newAssigned += toAssign;
           }
-
           return { ...b, count: b.count + 1, assignedWorkers: newAssigned };
         }
         return b;
       }));
-
       addLog(`${building.name} inşa edildi.`);
     }
   };
@@ -270,9 +407,7 @@ const App: React.FC = () => {
       }
 
       return prev.map(b => {
-        if (b.id === buildingId) {
-          return { ...b, assignedWorkers: b.assignedWorkers + change };
-        }
+        if (b.id === buildingId) return { ...b, assignedWorkers: b.assignedWorkers + change };
         return b;
       });
     });
@@ -286,13 +421,11 @@ const App: React.FC = () => {
       setResources(prev => {
         const newResources = { ...prev, science: prev.science - tech.cost };
         if (tech.bonus?.maxLand) newResources.maxLand += tech.bonus.maxLand;
+        if (tech.bonus?.military) addLog(`Ordu teknolojisi gelişti! (+${tech.bonus.military} Güç)`, 'tech');
         return newResources;
       });
-
       setUnlockedTechs(prev => [...prev, techId]);
-      let logMsg = `${tech.name} teknolojisi keşfedildi!`;
-      if (tech.bonus?.maxLand) logMsg += ` (+${tech.bonus.maxLand} Toprak)`;
-      addLog(logMsg, 'tech');
+      addLog(`${tech.name} keşfedildi!`, 'tech');
     }
   };
 
@@ -302,16 +435,17 @@ const App: React.FC = () => {
     if (resolutionType === 'solve') {
       if (resources.gold >= (activeCrisis.cost.gold || 0) && 
           resources.population >= (activeCrisis.cost.population || 0) &&
-          resources.science >= (activeCrisis.cost.science || 0)) {
+          resources.science >= (activeCrisis.cost.science || 0) &&
+          resources.soldiers >= (activeCrisis.cost.soldiers || 0)) {
         
         setResources(prev => ({
           ...prev,
           gold: prev.gold - (activeCrisis.cost.gold || 0),
           population: prev.population - (activeCrisis.cost.population || 0),
           science: prev.science - (activeCrisis.cost.science || 0),
+          soldiers: prev.soldiers - (activeCrisis.cost.soldiers || 0),
         }));
         addLog(`${activeCrisis.name} krizini başarıyla yönettiniz.`, 'game');
-        generateCrisisLog(activeCrisis, true).then(text => addLog(text, 'ai'));
       } else {
          addLog("Krizi çözmek için yeterli kaynağınız yok!", "warning");
          return;
@@ -325,7 +459,6 @@ const App: React.FC = () => {
         science: Math.max(0, prev.science - (activeCrisis.penalty.science || 0)),
       }));
       addLog(`${activeCrisis.name} krizi halkı perişan etti.`, 'crisis');
-      generateCrisisLog(activeCrisis, false).then(text => addLog(text, 'ai'));
     }
     setActiveCrisis(null);
   };
@@ -334,7 +467,7 @@ const App: React.FC = () => {
     if (isGeneratingAI) return;
     setIsGeneratingAI(true);
     const story = await generateChronicle({
-      resources, era, buildings, technologies: unlockedTechs, gameTime, climate
+      resources, era, buildings, technologies: unlockedTechs, gameTime, climate, rivals
     });
     addLog(story, 'ai');
     setIsGeneratingAI(false);
@@ -345,17 +478,12 @@ const App: React.FC = () => {
     setIsSnapshotModalOpen(true);
     setSnapshotImage(null);
     setIsGeneratingSnapshot(true);
-
     try {
       const base64 = await generateEmpireSnapshot({
-         resources, era, buildings, technologies: unlockedTechs, gameTime, climate
+         resources, era, buildings, technologies: unlockedTechs, gameTime, climate, rivals
       }, dominantStyle);
-      
-      if (base64) {
-        setSnapshotImage(base64);
-      } else {
-        addLog("Ressamlar görüntü oluşturamadı (API Hatası).", "warning");
-      }
+      if (base64) setSnapshotImage(base64);
+      else addLog("Ressamlar görüntü oluşturamadı (API Hatası).", "warning");
     } catch (e) {
       console.error(e);
       setSnapshotImage(null);
@@ -371,7 +499,31 @@ const App: React.FC = () => {
 
     const interval = setInterval(() => {
       if (showEraTransition) return;
+      const currentStrength = calculateMilitaryStrength();
 
+      // --- Rival Logic ---
+      setRivals(prev => prev.map(rival => {
+          // Rivals grow naturally
+          let growth = 0.5 + (Math.random());
+          if (rival.attitude === 'AGGRESSIVE') growth *= 1.2;
+          
+          // Random Event: Rival Raid
+          // Chance increases if they are stronger than player and aggressive/at war
+          const isThreat = rival.strength > currentStrength;
+          const isEnemy = rival.relation === RelationStatus.WAR || (rival.attitude === 'AGGRESSIVE' && rival.relation !== RelationStatus.FRIENDLY);
+          
+          if (isThreat && isEnemy && Math.random() < 0.005) {
+             // Raid triggers!
+             const stolenGold = Math.floor(resources.gold * 0.1);
+             setResources(r => ({ ...r, gold: Math.max(0, r.gold - stolenGold) }));
+             addLog(`BASKIN! ${rival.name} sınırlarınızı ihlal etti ve ${stolenGold} altın yağmaladı!`, 'war');
+             return { ...rival, wealth: rival.wealth + stolenGold, strength: rival.strength * 1.05 };
+          }
+
+          return { ...rival, strength: rival.strength + growth, wealth: rival.wealth + 1 };
+      }));
+
+      // --- Worker & Resource Logic ---
       setBuildings(prevBuildings => {
         const currentPop = Math.floor(resources.population);
         let totalAssigned = prevBuildings.reduce((sum, b) => sum + b.assignedWorkers, 0);
@@ -403,7 +555,6 @@ const App: React.FC = () => {
             ? b.assignedWorkers / b.baseCost.workers
             : b.count;
            
-           // Apply Exponential Growth Logic Here
            const efficiencyMult = getEfficiencyMultiplier(b.count);
            const popMult = Math.pow(1.02, b.count);
 
@@ -420,8 +571,9 @@ const App: React.FC = () => {
         };
       });
 
+      // --- Building Depletion ---
       setBuildings(prevBuildings => {
-        const newBuildings = prevBuildings.map(b => {
+        return prevBuildings.map(b => {
           if (b.count > 0 && b.depletionChance) {
             const workingRatio = b.baseCost.workers > 0 ? (b.assignedWorkers / (b.count * b.baseCost.workers)) : 1;
             if (workingRatio > 0 && Math.random() < (b.depletionChance * workingRatio)) {
@@ -434,9 +586,9 @@ const App: React.FC = () => {
           }
           return b;
         });
-        return newBuildings;
       });
 
+      // --- Era Check ---
       if (nextEraInfo) {
         const req = nextEraInfo.req;
         if (resources.gold >= req.gold && resources.population >= req.pop) {
@@ -457,6 +609,7 @@ const App: React.FC = () => {
         }
       }
 
+      // --- Crisis Check ---
       if (!activeCrisis && Math.random() < 0.005 && era !== Era.TRIBAL) {
           const possibleCrises = CRISIS_EVENTS.filter(c => c.era === era);
           if (possibleCrises.length > 0) {
@@ -470,7 +623,7 @@ const App: React.FC = () => {
     }, TICK_RATE_MS);
 
     return () => clearInterval(interval);
-  }, [isLoaded, resources.population, buildings, era, activeCrisis, showEraTransition, resources.gold, nextEraInfo, getEfficiencyMultiplier]);
+  }, [isLoaded, resources.population, buildings, era, activeCrisis, showEraTransition, resources.gold, nextEraInfo, getEfficiencyMultiplier, rivals, calculateMilitaryStrength]);
 
 
   // --- Render Helpers ---
@@ -550,14 +703,14 @@ const App: React.FC = () => {
         onExpandLand={handleExpandLand}
       />
 
-      {/* Main Content Area (Scrolls independently of Logs) */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0">
         
         <div className="container mx-auto max-w-7xl px-2 lg:px-4 pt-2">
            {renderHeader()}
         </div>
 
-        {/* Middle Section: Visuals and Actions */}
+        {/* Middle Section */}
         <div className="flex-1 overflow-y-auto px-2 lg:px-4 py-2">
           <div className="container mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-4">
              
@@ -588,7 +741,7 @@ const App: React.FC = () => {
                       `}
                    >
                       <Hammer size={18} />
-                      Üretim
+                      <span className="hidden sm:inline">Üretim</span>
                    </button>
                    <button 
                       onClick={() => setActiveTab('research')}
@@ -597,7 +750,16 @@ const App: React.FC = () => {
                       `}
                    >
                       <FlaskConical size={18} />
-                      Araştırma
+                      <span className="hidden sm:inline">Araştırma</span>
+                   </button>
+                   <button 
+                      onClick={() => setActiveTab('diplomacy')}
+                      className={`flex-1 py-3 flex items-center justify-center gap-2 font-cinzel font-bold transition-colors
+                         ${activeTab === 'diplomacy' ? 'bg-gray-800 text-red-400 border-b-2 border-red-400' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}
+                      `}
+                   >
+                      <Handshake size={18} />
+                      <span className="hidden sm:inline">Diplomasi</span>
                    </button>
                 </div>
 
@@ -623,7 +785,7 @@ const App: React.FC = () => {
                                </div>
                             )}
                         </div>
-                    ) : (
+                    ) : activeTab === 'research' ? (
                         <TechTree 
                           technologies={TECHNOLOGIES} 
                           unlockedTechIds={unlockedTechs} 
@@ -631,13 +793,23 @@ const App: React.FC = () => {
                           currentEra={era}
                           onResearch={handleResearch}
                         />
+                    ) : (
+                        <DiplomacyPanel 
+                          rivals={rivals}
+                          resources={resources}
+                          militaryStrength={calculateMilitaryStrength()}
+                          onAttack={handleAttackRival}
+                          onTrade={handleTradeRival}
+                          onImproveRelations={handleImproveRelations}
+                          onRecruit={handleRecruitSoldier}
+                        />
                     )}
                 </div>
              </div>
           </div>
         </div>
 
-        {/* Bottom Section: Logs (Fixed height footer) */}
+        {/* Bottom Section: Logs */}
         <div className="shrink-0 border-t border-gray-800 bg-gray-950">
             <LogPanel 
               logs={logs} 

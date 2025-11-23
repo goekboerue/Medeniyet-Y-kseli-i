@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Resources } from '../types';
-import { Users, Coins, Map, TrendingUp, Briefcase, FlaskConical, AlertCircle, Pickaxe, PlusCircle } from 'lucide-react';
+import { Users, Coins, Map, TrendingUp, Briefcase, FlaskConical, AlertCircle, Pickaxe, PlusCircle, Swords } from 'lucide-react';
 
 interface ResourcePanelProps {
   resources: Resources;
@@ -89,6 +89,7 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({ resources, income,
   const goldChange = useResourceChange(resources.gold);
   const landChange = useResourceChange(resources.land);
   const scienceChange = useResourceChange(resources.science);
+  const soldiersChange = useResourceChange(resources.soldiers);
   
   const landCost = Math.floor(resources.maxLand * 2.5);
   const canAffordLand = resources.gold >= landCost;
@@ -110,6 +111,15 @@ export const ResourcePanel: React.FC<ResourcePanelProps> = ({ resources, income,
           }
           change={popChange}
           trend={`+${populationGrowth.toFixed(1)}`}
+        />
+
+        {/* Soldiers */}
+        <ResourceItem 
+            icon={Swords} 
+            label="Ordu" 
+            colorClass="text-red-400"
+            value={resources.soldiers}
+            change={soldiersChange}
         />
 
         {/* Gold */}

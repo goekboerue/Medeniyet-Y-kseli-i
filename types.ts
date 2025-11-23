@@ -4,6 +4,7 @@ export enum ResourceType {
   GOLD = 'GOLD',
   LAND = 'LAND',
   SCIENCE = 'SCIENCE',
+  SOLDIERS = 'SOLDIERS',
 }
 
 export enum Era {
@@ -32,6 +33,26 @@ export interface Resources {
   land: number;
   maxLand: number;
   science: number;
+  soldiers: number; // New Resource
+}
+
+export enum RelationStatus {
+  WAR = 'Savaşta',
+  HOSTILE = 'Düşman',
+  NEUTRAL = 'Nötr',
+  FRIENDLY = 'Dost',
+  ALLY = 'Müttefik',
+}
+
+export interface Rival {
+  id: string;
+  name: string;
+  strength: number; // Military power
+  wealth: number; // Economic power (for looting)
+  relation: RelationStatus;
+  attitude: 'AGGRESSIVE' | 'DEFENSIVE' | 'TRADER';
+  era: Era;
+  lastInteractionTurn: number;
 }
 
 export interface Technology {
@@ -45,6 +66,7 @@ export interface Technology {
   bonus?: {
     maxLand?: number;
     population?: number;
+    military?: number; // New bonus type
   };
 }
 
@@ -61,6 +83,7 @@ export interface Building {
     gold?: number;
     population?: number;
     science?: number;
+    military?: number; // Passive defense/attack bonus
   };
   count: number;
   assignedWorkers: number; // New field for manual assignment
@@ -80,6 +103,7 @@ export interface Crisis {
     gold?: number;
     population?: number;
     science?: number;
+    soldiers?: number;
   };
   penalty: {
     gold?: number;
@@ -96,11 +120,12 @@ export interface GameState {
   technologies: string[]; // List of unlocked tech IDs
   gameTime: number;
   climate: Climate;
+  rivals: Rival[];
 }
 
 export interface LogEntry {
   id: string;
   timestamp: string;
   text: string;
-  type: 'game' | 'ai' | 'crisis' | 'warning' | 'tech';
+  type: 'game' | 'ai' | 'crisis' | 'warning' | 'tech' | 'war';
 }
