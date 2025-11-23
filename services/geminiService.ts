@@ -3,9 +3,6 @@ import { GoogleGenAI } from "@google/genai";
 import { GameState, Era, Crisis, BuildingStyle } from "../types";
 
 // Initialize the Gemini API client
-// We use a fallback empty string to prevent the app from crashing immediately 
-// if the environment variable is not set in the deployment environment.
-// Calls will fail gracefully later if the key is invalid.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
 
 export const generateChronicle = async (gameState: GameState): Promise<string> => {
@@ -21,15 +18,13 @@ export const generateChronicle = async (gameState: GameState): Promise<string> =
       Şu anki oyun durumu:
       - Çağ: ${gameState.era}
       - İklim: ${gameState.climate}
-      - Nüfus: ${totalPop} (Çalışan: ${usedWorkers}, Boşta: ${availableWorkers})
+      - Nüfus: ${totalPop}
       - Altın: ${Math.floor(gameState.resources.gold)}
       - Toprak: ${gameState.resources.land} / ${gameState.resources.maxLand}
-      - Binalar: ${gameState.buildings.filter(b => b.count > 0).map(b => `${b.name} (${b.count})`).join(', ')}
       
-      Lütfen bu medeniyetin şu anki durumu hakkında 2-3 cümlelik kısa, epik ve atmosferik bir tarihçe girişi yaz. 
-      Halkın yaşamını ve zorluklarını anlatırken mutlaka '${gameState.climate}' iklimin (soğuk, sıcak, yağmur, kuraklık vb.) etkisinden bahset.
-      Eğer 'Boşta' çalışan sayısı çoksa işsizlikten, negatifse iş gücü yetersizliğinden bahsedebilirsin.
-      Olayları biraz dramatize et. Türkçe yanıt ver.
+      Lütfen bu medeniyetin şu anki durumu hakkında 2 cümlelik kısa, epik bir tarihçe girişi yaz. 
+      Halkın durumundan ve krallığın zenginliğinden/fakirliğinden bahset.
+      Türkçe yanıt ver.
     `;
 
     const response = await ai.models.generateContent({
@@ -40,7 +35,7 @@ export const generateChronicle = async (gameState: GameState): Promise<string> =
     return response.text || "Tarihçiler bu dönemi sessizlikle anıyor...";
   } catch (error) {
     console.error("Gemini generation error:", error);
-    return "Kadim parşömenler okunamıyor (Bağlantı hatası veya API Anahtarı eksik).";
+    return "Kadim parşömenler okunamıyor (Bağlantı hatası).";
   }
 };
 
@@ -49,7 +44,7 @@ export const generateEraTransition = async (newEra: Era): Promise<string> => {
     const model = "gemini-2.5-flash";
     const prompt = `
       Bir medeniyet strateji oyununda oyuncu yeni bir çağa geçti: ${newEra}.
-      Bu geçişi kutlayan, insanlığın gelişimini vurgulayan 2 cümlelik ilham verici bir mesaj yaz. Türkçe yanıt ver.
+      Bu geçişi kutlayan tek cümlelik epik bir mesaj yaz. Türkçe yanıt ver.
     `;
 
     const response = await ai.models.generateContent({
@@ -59,7 +54,6 @@ export const generateEraTransition = async (newEra: Era): Promise<string> => {
 
     return response.text || `${newEra} başladı!`;
   } catch (error) {
-    console.error("Gemini generation error:", error);
     return `${newEra} şafağı söktü.`;
   }
 };
@@ -68,10 +62,8 @@ export const generateCrisisLog = async (crisis: Crisis, solved: boolean): Promis
     try {
       const model = "gemini-2.5-flash";
       const prompt = `
-        Bir medeniyet strateji oyununda bir kriz yaşandı: ${crisis.name} (${crisis.description}).
-        Sonuç: ${solved ? "HALK BU KRİZİ ATLATTI" : "KRİZ MEDENİYETE ZARAR VERDİ"}.
-        
-        Bu durumu anlatan tek cümlelik dramatik bir tarihçe notu yaz. Türkçe yanıt ver.
+        Kriz: ${crisis.name}. Durum: ${solved ? "ÇÖZÜLDÜ" : "BAŞARISIZ"}.
+        Bunu anlatan çok kısa, dramatik bir cümle yaz. Türkçe.
       `;
   
       const response = await ai.models.generateContent({
@@ -79,9 +71,9 @@ export const generateCrisisLog = async (crisis: Crisis, solved: boolean): Promis
         contents: prompt,
       });
   
-      return response.text || (solved ? `${crisis.name} çözüldü.` : `${crisis.name} büyük hasar verdi.`);
+      return response.text || (solved ? `${crisis.name} çözüldü.` : `${crisis.name} zarar verdi.`);
     } catch (error) {
-      return solved ? "Zorlukların üstesinden gelindi." : "Karanlık günler yaşandı.";
+      return solved ? "Zorluklar aşıldı." : "Karanlık günler.";
     }
 };
 
@@ -92,28 +84,17 @@ export const generateEmpireSnapshot = async (gameState: GameState, dominantStyle
   }
 
   try {
-    const buildingsList = gameState.buildings
-      .filter(b => b.count > 0)
-      .map(b => `${b.count} ${b.name}`)
-      .join(', ');
-
-    let stylePrompt = "";
-    if (dominantStyle === BuildingStyle.MILITARY) {
-      stylePrompt = "Strong fortress walls, military banners, disciplined, dark and red tones.";
-    } else if (dominantStyle === BuildingStyle.ECONOMIC) {
-      stylePrompt = "Busy markets, golden rooftops, trade caravans, rich and amber tones.";
-    } else {
-      stylePrompt = "Peaceful village, balanced architecture, harmonious colors.";
-    }
-
-    // Simplified prompt to avoid safety filters and ensure better model understanding for "digital art"
+    // Simplified prompt to ensure higher success rate and avoid safety filters
+    let aesthetic = "isometric strategy game asset, low poly, vibrant colors";
+    if (dominantStyle === BuildingStyle.MILITARY) aesthetic = "dark fantasy fortress, isometric, red banners, imposing";
+    if (dominantStyle === BuildingStyle.ECONOMIC) aesthetic = "golden city, bustling market, isometric, luxurious";
+    
+    // We remove specific building counts to avoid confusing the model with math, focusing on vibe
     const prompt = `
-      Digital concept art of a civilization city. 
-      Era: ${gameState.era}. 
-      Climate: ${gameState.climate}. 
-      Buildings visible: ${buildingsList || "Small settlement"}.
-      Atmosphere: ${stylePrompt}.
-      High quality, detailed, isometric view or wide angle.
+      Digital art, ${aesthetic}. 
+      A civilization city in the ${gameState.era} era. 
+      Climate environment: ${gameState.climate}.
+      High quality, 3d render, unreal engine style, centered composition, no text.
     `;
 
     const response = await ai.models.generateContent({
@@ -121,7 +102,6 @@ export const generateEmpireSnapshot = async (gameState: GameState, dominantStyle
       contents: {
         parts: [{ text: prompt }]
       },
-      // Note: gemini-2.5-flash-image does NOT support responseMimeType or responseSchema in config
       config: {}
     });
 
@@ -137,6 +117,7 @@ export const generateEmpireSnapshot = async (gameState: GameState, dominantStyle
     return null;
   } catch (error) {
     console.error("Image generation error:", error);
+    // Return null to let the UI handle the error state
     return null;
   }
 };

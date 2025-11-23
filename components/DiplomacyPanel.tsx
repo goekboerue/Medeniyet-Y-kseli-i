@@ -1,7 +1,8 @@
 
+
 import React from 'react';
 import { Rival, RelationStatus, Resources } from '../types';
-import { Swords, Handshake, Gift, Shield, Skull, Crown, UserPlus } from 'lucide-react';
+import { Swords, Handshake, Gift, Shield, Skull, Crown, UserPlus, Timer } from 'lucide-react';
 
 interface DiplomacyPanelProps {
   rivals: Rival[];
@@ -11,6 +12,7 @@ interface DiplomacyPanelProps {
   onImproveRelations: (rivalId: string) => void;
   onRecruit: (amount: number) => void;
   militaryStrength: number;
+  gameTime?: number;
 }
 
 export const DiplomacyPanel: React.FC<DiplomacyPanelProps> = ({ 
@@ -20,7 +22,8 @@ export const DiplomacyPanel: React.FC<DiplomacyPanelProps> = ({
   onTrade, 
   onImproveRelations,
   onRecruit,
-  militaryStrength
+  militaryStrength,
+  gameTime = 0
 }) => {
 
   const getRelationColor = (status: RelationStatus) => {
@@ -44,15 +47,39 @@ export const DiplomacyPanel: React.FC<DiplomacyPanelProps> = ({
 
   const RECRUIT_COST_GOLD = 50;
   const RECRUIT_COST_POP = 1;
-  const canRecruit = resources.gold >= RECRUIT_COST_GOLD && resources.population >= RECRUIT_COST_POP;
+
+  const renderRecruitButton = (amount: number) => {
+    const totalGold = RECRUIT_COST_GOLD * amount;
+    const totalPop = RECRUIT_COST_POP * amount;
+    const canAfford = resources.gold >= totalGold && resources.population >= totalPop;
+
+    return (
+        <button
+            onClick={() => onRecruit(amount)}
+            disabled={!canAfford}
+            className={`
+                px-3 py-2 rounded font-bold text-xs flex flex-col items-center justify-center gap-1 transition-all border
+                ${canAfford 
+                    ? 'bg-red-900/40 hover:bg-red-800 border-red-500/50 text-red-100' 
+                    : 'bg-gray-800 border-gray-700 text-gray-600 cursor-not-allowed'}
+            `}
+            title={`-${totalGold} Altın, -${totalPop} Nüfus`}
+        >
+            <span className="flex items-center gap-1"><UserPlus size={12} /> +{amount}</span>
+            <span className="text-[9px] opacity-70 font-mono">-{totalGold}g</span>
+        </button>
+    );
+  };
+
+  const isSoldiersZero = resources.soldiers <= 0;
 
   return (
     <div className="space-y-6 animate-fade-in pb-8">
       
       {/* Recruitment Section */}
-      <div className="bg-gray-900/60 border border-gray-700 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-         <div className="flex items-center gap-4">
-             <div className="bg-red-900/30 p-3 rounded-full border border-red-500/30">
+      <div className="bg-gray-900/60 border border-gray-700 rounded-xl p-4 flex flex-col lg:flex-row items-center justify-between gap-4">
+         <div className="flex items-center gap-4 w-full lg:w-auto">
+             <div className="bg-red-900/30 p-3 rounded-full border border-red-500/30 hidden sm:block">
                  <Shield size={32} className="text-red-500" />
              </div>
              <div>
@@ -61,27 +88,20 @@ export const DiplomacyPanel: React.FC<DiplomacyPanelProps> = ({
                     Mevcut Asker: <span className="text-white font-bold">{resources.soldiers}</span> | 
                     Toplam Güç: <span className="text-red-400 font-bold">{Math.floor(militaryStrength)}</span>
                  </p>
+                 <p className="text-[10px] text-gray-500 mt-1">1 Asker = 50 Altın + 1 Nüfus</p>
+                 {isSoldiersZero && (
+                    <div className="text-[10px] text-red-400 font-bold bg-red-900/20 px-2 py-0.5 rounded border border-red-500/30 inline-block mt-1 animate-pulse">
+                        UYARI: Asker yok! Savunma çöktü (-%90 Güç).
+                    </div>
+                 )}
              </div>
          </div>
 
-         <div className="flex items-center gap-2">
-             <button
-                onClick={() => onRecruit(1)}
-                disabled={!canRecruit}
-                className={`
-                    px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all
-                    ${canRecruit 
-                        ? 'bg-red-700 hover:bg-red-600 text-white shadow-lg hover:shadow-red-500/30' 
-                        : 'bg-gray-800 text-gray-600 cursor-not-allowed'}
-                `}
-             >
-                 <UserPlus size={16} />
-                 Asker Yetiştir
-                 <div className="flex flex-col items-start text-[9px] leading-tight ml-1 opacity-80">
-                    <span>-{RECRUIT_COST_GOLD} Altın</span>
-                    <span>-{RECRUIT_COST_POP} Nüfus</span>
-                 </div>
-             </button>
+         <div className="grid grid-cols-4 gap-2 w-full lg:w-auto">
+             {renderRecruitButton(1)}
+             {renderRecruitButton(10)}
+             {renderRecruitButton(100)}
+             {renderRecruitButton(1000)}
          </div>
       </div>
 
@@ -94,6 +114,8 @@ export const DiplomacyPanel: React.FC<DiplomacyPanelProps> = ({
             const relStyle = getRelationColor(rival.relation);
             const isAtWar = rival.relation === RelationStatus.WAR;
             const strengthRatio = militaryStrength > 0 ? rival.strength / militaryStrength : 100;
+            const isOnCooldown = rival.cooldownEnd && rival.cooldownEnd > gameTime;
+            const cooldownLeft = isOnCooldown ? Math.max(0, (rival.cooldownEnd || 0) - gameTime) : 0;
             
             let threatLevel = "Düşük";
             let threatColor = "text-green-500";
@@ -129,7 +151,12 @@ export const DiplomacyPanel: React.FC<DiplomacyPanelProps> = ({
 
                         {/* Actions */}
                         <div className="flex items-center gap-2 w-full md:w-auto">
-                            {isAtWar ? (
+                            {isOnCooldown ? (
+                                <div className="flex items-center gap-2 px-4 py-2 bg-gray-800/80 border border-gray-700 text-gray-500 rounded-lg text-xs italic">
+                                    <Timer size={14} className="animate-pulse" />
+                                    Yeniden toplanıyor ({cooldownLeft}s)
+                                </div>
+                            ) : isAtWar ? (
                                 <button 
                                     onClick={() => onAttack(rival.id)}
                                     className="flex-1 md:flex-none px-4 py-2 bg-red-900/50 hover:bg-red-800 border border-red-600 text-red-200 rounded-lg flex items-center justify-center gap-2 transition-colors font-bold"

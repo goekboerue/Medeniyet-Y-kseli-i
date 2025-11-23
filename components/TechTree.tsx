@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { Technology, Era, Resources } from '../types';
-import { FlaskConical, Lock, Check, ChevronRight } from 'lucide-react';
+import { FlaskConical, Lock, Check, ChevronRight, Infinity, ShieldPlus, Map } from 'lucide-react';
 
 interface TechTreeProps {
   technologies: Technology[];
@@ -8,11 +9,13 @@ interface TechTreeProps {
   resources: Resources;
   currentEra: Era;
   onResearch: (techId: string) => void;
+  futureTechLevel?: number;
+  onFutureResearch?: () => void;
 }
 
-export const TechTree: React.FC<TechTreeProps> = ({ technologies, unlockedTechIds, resources, currentEra, onResearch }) => {
+export const TechTree: React.FC<TechTreeProps> = ({ technologies, unlockedTechIds, resources, currentEra, onResearch, futureTechLevel = 0, onFutureResearch }) => {
   
-  // Sort techs to ensure prerequisites are generally above or visually linked (simplified here by era)
+  // Sort techs
   const techsByEra = {
     [Era.TRIBAL]: technologies.filter(t => t.era === Era.TRIBAL),
     [Era.AGRICULTURAL]: technologies.filter(t => t.era === Era.AGRICULTURAL),
@@ -20,10 +23,9 @@ export const TechTree: React.FC<TechTreeProps> = ({ technologies, unlockedTechId
     [Era.TECHNOLOGICAL]: technologies.filter(t => t.era === Era.TECHNOLOGICAL),
   };
 
-  // Helper to check if tech is available
   const isTechAvailable = (tech: Technology) => {
-    if (unlockedTechIds.includes(tech.id)) return false; // Already unlocked
-    if (tech.prerequisite && !unlockedTechIds.includes(tech.prerequisite)) return false; // Prereq missing
+    if (unlockedTechIds.includes(tech.id)) return false; 
+    if (tech.prerequisite && !unlockedTechIds.includes(tech.prerequisite)) return false; 
     return true;
   };
 
@@ -45,7 +47,6 @@ export const TechTree: React.FC<TechTreeProps> = ({ technologies, unlockedTechId
               : 'bg-gray-800 border-purple-500/30 hover:border-purple-400 shadow-lg'}
         `}
       >
-        {/* Status Icon */}
         <div className="absolute top-2 right-2">
             {isUnlocked && <Check size={16} className="text-emerald-500" />}
             {isLocked && <Lock size={16} className="text-gray-600" />}
@@ -60,7 +61,6 @@ export const TechTree: React.FC<TechTreeProps> = ({ technologies, unlockedTechId
           </p>
         </div>
 
-        {/* Action / Cost */}
         {!isUnlocked && (
           <div className="mt-auto">
              {isLocked ? (
@@ -94,6 +94,9 @@ export const TechTree: React.FC<TechTreeProps> = ({ technologies, unlockedTechId
     );
   };
 
+  const futureTechCost = Math.floor(10000 * Math.pow(1.5, futureTechLevel));
+  const canAffordFuture = resources.science >= futureTechCost;
+
   return (
     <div className="space-y-6 mb-8 animate-fade-in">
         <h2 className="font-cinzel text-2xl flex items-center gap-2 border-b border-gray-800 pb-2 text-gray-200">
@@ -101,12 +104,10 @@ export const TechTree: React.FC<TechTreeProps> = ({ technologies, unlockedTechId
         </h2>
         
         {Object.entries(techsByEra).map(([eraKey, techs]) => {
-           // Only show eras up to next one
            const eraOrder = [Era.TRIBAL, Era.AGRICULTURAL, Era.INDUSTRIAL, Era.TECHNOLOGICAL];
            const currentEraIndex = eraOrder.indexOf(currentEra);
            const thisEraIndex = eraOrder.indexOf(eraKey as Era);
            
-           // Show unlocked eras + 1
            if (thisEraIndex > currentEraIndex + 1) return null;
 
            if (techs.length === 0) return null;
@@ -123,6 +124,42 @@ export const TechTree: React.FC<TechTreeProps> = ({ technologies, unlockedTechId
              </div>
            );
         })}
+
+        {/* Future Tech Section - Only visible if Tech Era or nearly all unlocked */}
+        {currentEra === Era.TECHNOLOGICAL && onFutureResearch && (
+            <div className="mt-8 pt-6 border-t border-purple-900/50">
+                <h3 className="text-sm font-bold uppercase tracking-widest mb-3 flex items-center gap-2 text-purple-400 animate-pulse">
+                    <Infinity size={14} /> Sonsuz Ufuklar
+                </h3>
+                <div className="bg-gradient-to-r from-purple-900/40 to-black p-4 rounded-xl border border-purple-500/30 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex-1">
+                        <h4 className="font-bold text-lg text-white flex items-center gap-2">
+                            Geleceğin Teknolojisi <span className="text-xs bg-purple-600 px-2 py-0.5 rounded-full">Seviye {futureTechLevel + 1}</span>
+                        </h4>
+                        <p className="text-gray-400 text-sm mt-1">
+                            Medeniyetin sınırlarını zorla. Her seviye orduyu güçlendirir ve yeni yaşam alanları (toprak) açar.
+                        </p>
+                        <div className="flex gap-4 mt-2 text-xs">
+                             <span className="text-green-400 flex items-center gap-1"><Map size={12}/> +20 Toprak Kapasitesi</span>
+                             <span className="text-red-400 flex items-center gap-1"><ShieldPlus size={12}/> +%5 Ordu Gücü</span>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onFutureResearch}
+                        disabled={!canAffordFuture}
+                        className={`
+                            px-6 py-3 rounded-lg font-bold flex flex-col items-center gap-1 min-w-[140px] transition-all
+                            ${canAffordFuture 
+                                ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_20px_rgba(147,51,234,0.5)]' 
+                                : 'bg-gray-800 text-gray-500 cursor-not-allowed'}
+                        `}
+                    >
+                        <span className="flex items-center gap-2"><FlaskConical size={16} /> Araştır</span>
+                        <span className="text-[10px] opacity-80 font-mono">{futureTechCost.toLocaleString()} Bilim</span>
+                    </button>
+                </div>
+            </div>
+        )}
     </div>
   );
 };

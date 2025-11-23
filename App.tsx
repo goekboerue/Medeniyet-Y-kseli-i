@@ -11,16 +11,18 @@ import { EraTransitionOverlay } from './components/EraTransitionOverlay';
 import { TechTree } from './components/TechTree';
 import { SnapshotModal } from './components/SnapshotModal';
 import { DiplomacyPanel } from './components/DiplomacyPanel';
+import { ImperialProjects } from './components/ImperialProjects';
 import { generateChronicle, generateEraTransition, generateCrisisLog, generateEmpireSnapshot } from './services/geminiService';
 import { Pickaxe, Globe, Flag, ChevronRight, BrainCircuit, Camera, CloudSun, Users, ArrowRight, Lock, Palette, LayoutDashboard, FlaskConical, Hammer, Save, Handshake } from 'lucide-react';
 
-const SAVE_KEY = 'civilization_rise_save_v2'; // Version bumped for new fields
+const SAVE_KEY = 'civilization_rise_save_v5'; // Version bumped
 
 const App: React.FC = () => {
   // --- State ---
   const [resources, setResources] = useState<Resources>(INITIAL_RESOURCES);
   const [buildings, setBuildings] = useState(BUILDING_DEFINITIONS.map(b => ({ ...b, count: 0, assignedWorkers: 0 })));
   const [unlockedTechs, setUnlockedTechs] = useState<string[]>([]);
+  const [futureTechLevel, setFutureTechLevel] = useState<number>(0);
   const [era, setEra] = useState<Era>(Era.TRIBAL);
   const [climate, setClimate] = useState<Climate>(Climate.TEMPERATE);
   const [rivals, setRivals] = useState<Rival[]>([]);
@@ -30,6 +32,9 @@ const App: React.FC = () => {
   const [activeCrisis, setActiveCrisis] = useState<Crisis | null>(null);
   const [showEraTransition, setShowEraTransition] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  
+  // Game modifiers
+  const [goldenAgeEndTime, setGoldenAgeEndTime] = useState<number>(0);
   
   // UI State
   const [activeTab, setActiveTab] = useState<'production' | 'research' | 'diplomacy'>('production');
@@ -50,7 +55,8 @@ const App: React.FC = () => {
           relation: RelationStatus.NEUTRAL,
           attitude: template.attitude || 'DEFENSIVE',
           era: Era.TRIBAL,
-          lastInteractionTurn: 0
+          lastInteractionTurn: 0,
+          cooldownEnd: 0
       } as Rival));
   };
 
@@ -62,6 +68,7 @@ const App: React.FC = () => {
         const parsed = JSON.parse(savedData);
         if (parsed.resources) setResources({ ...INITIAL_RESOURCES, ...parsed.resources });
         if (parsed.unlockedTechs) setUnlockedTechs(parsed.unlockedTechs);
+        if (parsed.futureTechLevel) setFutureTechLevel(parsed.futureTechLevel);
         if (parsed.era) setEra(parsed.era);
         if (parsed.climate) setClimate(parsed.climate);
         if (parsed.gameTime) setGameTime(parsed.gameTime);
@@ -108,6 +115,7 @@ const App: React.FC = () => {
         resources,
         buildings: buildings.map(b => ({ id: b.id, count: b.count, assignedWorkers: b.assignedWorkers })),
         unlockedTechs,
+        futureTechLevel,
         era,
         climate,
         gameTime,
@@ -118,7 +126,7 @@ const App: React.FC = () => {
     }, 2000); // Debounce save every 2 seconds
 
     return () => clearTimeout(saveTimer);
-  }, [resources, buildings, unlockedTechs, era, climate, gameTime, logs, isLoaded, rivals]);
+  }, [resources, buildings, unlockedTechs, futureTechLevel, era, climate, gameTime, logs, isLoaded, rivals]);
 
 
   // --- Helper: Scaling Logic ---
@@ -134,7 +142,18 @@ const App: React.FC = () => {
 
   const availableWorkers = Math.floor(resources.population) - calculateUsedWorkers();
 
+  const isGoldenAgeActive = gameTime < goldenAgeEndTime;
+  const globalProductionMultiplier = isGoldenAgeActive ? 2.0 : 1.0;
+
   const calculateMilitaryStrength = useCallback(() => {
+      // PENALTY: If soldiers are 0, military strength is drastically reduced regardless of tech/buildings
+      // This forces the player to maintain an active army.
+      if (resources.soldiers <= 0) {
+        // Base defense of 5 just to prevent division by zero or negative logic issues elsewhere, 
+        // but it's effectively defenseless.
+        return 5; 
+      }
+
       let strength = resources.soldiers * 2; // Base soldier power
       
       // Add building bonuses
@@ -152,8 +171,13 @@ const App: React.FC = () => {
           }
       });
 
-      return strength;
-  }, [resources.soldiers, buildings, unlockedTechs]);
+      // Infinite Tech Bonus: +5% per level
+      if (futureTechLevel > 0) {
+        strength = strength * (1 + (futureTechLevel * 0.05));
+      }
+
+      return strength * globalProductionMultiplier;
+  }, [resources.soldiers, buildings, unlockedTechs, futureTechLevel, globalProductionMultiplier]);
 
   const calculateIncome = useCallback(() => {
     return buildings.reduce((total, b) => {
@@ -163,8 +187,8 @@ const App: React.FC = () => {
       
       const multiplier = getEfficiencyMultiplier(b.count);
       return total + (b.production.gold || 0) * effectiveBuildings * multiplier;
-    }, 0);
-  }, [buildings, getEfficiencyMultiplier]);
+    }, 0) * globalProductionMultiplier;
+  }, [buildings, getEfficiencyMultiplier, globalProductionMultiplier]);
   
   const calculateScienceIncome = useCallback(() => {
     return buildings.reduce((total, b) => {
@@ -174,8 +198,8 @@ const App: React.FC = () => {
         
       const multiplier = getEfficiencyMultiplier(b.count);
       return total + (b.production.science || 0) * effectiveBuildings * multiplier;
-    }, 0);
-  }, [buildings, getEfficiencyMultiplier]);
+    }, 0) * globalProductionMultiplier;
+  }, [buildings, getEfficiencyMultiplier, globalProductionMultiplier]);
 
   const calculatePopulationGrowth = useCallback(() => {
     const baseGrowth = 0.01 * (resources.population > 0 ? 1 : 0);
@@ -187,8 +211,8 @@ const App: React.FC = () => {
       const multiplier = Math.pow(1.02, b.count); 
       return total + (b.production.population || 0) * effectiveBuildings * multiplier;
     }, 0);
-    return buildingGrowth + baseGrowth;
-  }, [buildings, resources.population]);
+    return (buildingGrowth + baseGrowth) * globalProductionMultiplier;
+  }, [buildings, resources.population, globalProductionMultiplier]);
 
 
   const dominantStyle = useMemo(() => {
@@ -210,7 +234,7 @@ const App: React.FC = () => {
   }, [era]);
 
   const getEmpireSummary = () => {
-      return `🏛️ MEDENİYET DURUM RAPORU\n📅 Çağ: ${era}\n🌍 İklim: ${climate}\n👥 Nüfus: ${Math.floor(resources.population)}\n⚔️ Ordu Gücü: ${Math.floor(calculateMilitaryStrength())}\n\nBenim imparatorluğum yükseliyor! #MedeniyetYükselişi`;
+      return `🏛️ MEDENİYET DURUM RAPORU\n📅 Çağ: ${era}\n🌍 İklim: ${climate}\n👥 Nüfus: ${Math.floor(resources.population)}\n⚔️ Ordu Gücü: ${Math.floor(calculateMilitaryStrength())}\n🧪 Gelecek Teknolojisi Seviyesi: ${futureTechLevel}\n\nBenim imparatorluğum yükseliyor! #MedeniyetYükselişi`;
   };
 
   const addLog = (text: string, type: 'game' | 'ai' | 'crisis' | 'warning' | 'tech' | 'war' = 'game') => {
@@ -224,6 +248,46 @@ const App: React.FC = () => {
       }
     ]);
   };
+
+  // --- Imperial Projects Actions ---
+
+  const handleGoldenAge = () => {
+    const cost = Math.max(1000, Math.floor(resources.gold * 0.8));
+    if (resources.gold >= cost) {
+       setResources(prev => ({ ...prev, gold: prev.gold - cost }));
+       setGoldenAgeEndTime(gameTime + 60); // 60 seconds (ticks)
+       addLog(`ALTIN ÇAĞ BAŞLADI! 60 saniye boyunca üretim 2 katına çıktı!`, 'game');
+    }
+  };
+
+  const handleFestival = () => {
+    const cost = Math.max(200, Math.floor(resources.gold * 0.3));
+    if (resources.gold >= cost) {
+       setResources(prev => ({ 
+           ...prev, 
+           gold: prev.gold - cost,
+           population: prev.population + 10
+       }));
+       addLog(`Büyük Şölen düzenlendi. Halk mutlu (+10 Nüfus).`, 'game');
+    }
+  };
+
+  const handleScienceGrant = () => {
+    const cost = 5000;
+    if (resources.gold >= cost) {
+        setResources(prev => ({ ...prev, gold: prev.gold - cost, science: prev.science + 1000 }));
+        addLog(`Bilim Fuarı düzenlendi. Bilim insanları ödüllendirildi (+1000 Bilim).`, 'tech');
+    }
+  };
+
+  const handleLandReclamation = () => {
+     const cost = Math.floor(resources.maxLand * 10);
+     if (resources.gold >= cost) {
+         setResources(prev => ({ ...prev, gold: prev.gold - cost, maxLand: prev.maxLand + 10 }));
+         addLog(`Bataklıklar kurutuldu ve yeni araziler açıldı (+10 Toprak).`, 'game');
+     }
+  };
+
 
   // --- Diplomacy / War Actions ---
 
@@ -239,6 +303,8 @@ const App: React.FC = () => {
               soldiers: (prev.soldiers || 0) + amount
           }));
           addLog(`${amount} yeni asker orduya katıldı.`, 'game');
+      } else {
+          addLog("Asker yetiştirmek için yeterli kaynağın yok.", "warning");
       }
   };
 
@@ -246,42 +312,57 @@ const App: React.FC = () => {
       const rival = rivals.find(r => r.id === rivalId);
       if (!rival) return;
 
+      // Check cooldown (Farming Limit)
+      if (rival.cooldownEnd && rival.cooldownEnd > gameTime) {
+          addLog(`${rival.name} şu an sığınaklara çekildi. Saldıramıyoruz.`, 'warning');
+          return;
+      }
+
       const myStrength = calculateMilitaryStrength();
       const rivalStrength = rival.strength;
       
-      // Determine outcome (simple logic for now)
+      // Determine outcome
       const advantage = myStrength / Math.max(1, rivalStrength);
       const randomFactor = Math.random() * 0.4 + 0.8; // 0.8 to 1.2
       const score = advantage * randomFactor;
 
+      // Cooldown to prevent spamming weak rivals
+      const cooldownDuration = 30; // 30 seconds
+
       if (score > 1.1) {
           // Victory
           const lootGold = Math.floor(rival.wealth * 0.3);
-          const lootLand = 5;
+          const lootLand = 10; // WINNING GRANTS LAND
+          
           setResources(prev => ({
               ...prev,
               gold: prev.gold + lootGold,
               maxLand: prev.maxLand + lootLand,
               soldiers: Math.max(0, Math.floor((prev.soldiers || 0) * 0.95)) // 5% casualties
           }));
+          
           setRivals(prev => prev.map(r => r.id === rivalId ? { 
               ...r, 
               strength: r.strength * 0.7, 
               wealth: r.wealth * 0.7,
-              relation: RelationStatus.WAR 
+              relation: RelationStatus.WAR,
+              cooldownEnd: gameTime + cooldownDuration // Set cooldown
           } : r));
-          addLog(`ZAFER! ${rival.name} ordusu bozguna uğratıldı. ${lootGold} altın ve toprak ele geçirildi.`, 'war');
+          
+          addLog(`ZAFER! ${rival.name} bozguna uğratıldı ve geri çekildi. ${lootGold} altın ve ${lootLand} TOPRAK ele geçirildi!`, 'war');
       } else {
           // Defeat
+          const lostSoldiersRatio = 0.3; // 30% casualties
+          
           setResources(prev => ({
               ...prev,
-              soldiers: Math.max(0, Math.floor((prev.soldiers || 0) * 0.7)) // 30% casualties
+              soldiers: Math.max(0, Math.floor((prev.soldiers || 0) * (1 - lostSoldiersRatio))) 
           }));
           setRivals(prev => prev.map(r => r.id === rivalId ? { 
               ...r, 
               relation: RelationStatus.WAR 
           } : r));
-          addLog(`YENİLGİ! ${rival.name} saldırısı başarısız oldu. Ağır kayıplar verildi.`, 'war');
+          addLog(`YENİLGİ! ${rival.name} savunmasını aşamadık. Ağır kayıplar verdik.`, 'war');
       }
   };
 
@@ -336,10 +417,10 @@ const App: React.FC = () => {
     const chance = Math.random();
     setResources(prev => ({
       ...prev,
-      gold: prev.gold + 1 + (prev.gold * 0.01),
+      gold: prev.gold + (1 + (prev.gold * 0.01)) * globalProductionMultiplier,
       maxLand: (prev.land >= prev.maxLand && chance > 0.98) ? prev.maxLand + 1 : prev.maxLand,
       land: (prev.land < prev.maxLand && chance > 0.8) ? prev.land + 1 : prev.land,
-      science: (chance > 0.6) ? prev.science + 1 + (prev.science * 0.005) : prev.science
+      science: (chance > 0.6) ? prev.science + (1 + (prev.science * 0.005)) * globalProductionMultiplier : prev.science
     }));
   };
 
@@ -429,6 +510,21 @@ const App: React.FC = () => {
     }
   };
 
+  const handleFutureResearch = () => {
+     const cost = Math.floor(10000 * Math.pow(1.5, futureTechLevel));
+     if (resources.science >= cost) {
+         setResources(prev => ({
+             ...prev,
+             science: prev.science - cost,
+             maxLand: prev.maxLand + 20, // Critical bottleneck fix
+         }));
+         setFutureTechLevel(prev => prev + 1);
+         addLog(`Geleceğin Teknolojisi Seviye ${futureTechLevel + 1} keşfedildi! Ordu ve Toprak kapasitesi arttı.`, 'tech');
+     } else {
+         addLog("Yetersiz bilim puanı.", "warning");
+     }
+  };
+
   const handleResolveCrisis = (resolutionType: 'solve' | 'ignore') => {
     if (!activeCrisis) return;
 
@@ -467,7 +563,7 @@ const App: React.FC = () => {
     if (isGeneratingAI) return;
     setIsGeneratingAI(true);
     const story = await generateChronicle({
-      resources, era, buildings, technologies: unlockedTechs, gameTime, climate, rivals
+      resources, era, buildings, technologies: unlockedTechs, gameTime, climate, rivals, futureTechLevel
     });
     addLog(story, 'ai');
     setIsGeneratingAI(false);
@@ -480,10 +576,10 @@ const App: React.FC = () => {
     setIsGeneratingSnapshot(true);
     try {
       const base64 = await generateEmpireSnapshot({
-         resources, era, buildings, technologies: unlockedTechs, gameTime, climate, rivals
+         resources, era, buildings, technologies: unlockedTechs, gameTime, climate, rivals, futureTechLevel
       }, dominantStyle);
       if (base64) setSnapshotImage(base64);
-      else addLog("Ressamlar görüntü oluşturamadı (API Hatası).", "warning");
+      else addLog("Ressamlar görüntü oluşturamadı (Yoğunluk).", "warning");
     } catch (e) {
       console.error(e);
       setSnapshotImage(null);
@@ -498,7 +594,7 @@ const App: React.FC = () => {
     if (!isLoaded) return;
 
     const interval = setInterval(() => {
-      if (showEraTransition) return;
+      if (showEraTransition || activeCrisis) return; // Pause during crisis popup
       const currentStrength = calculateMilitaryStrength();
 
       // --- Rival Logic ---
@@ -508,15 +604,31 @@ const App: React.FC = () => {
           if (rival.attitude === 'AGGRESSIVE') growth *= 1.2;
           
           // Random Event: Rival Raid
-          // Chance increases if they are stronger than player and aggressive/at war
           const isThreat = rival.strength > currentStrength;
+          // Predatory AI: If player is very weak (< 50% of rival), they attack much more often
+          const isPredatory = currentStrength < rival.strength * 0.5;
+          const raidChance = isPredatory ? 0.02 : 0.005; 
+          
           const isEnemy = rival.relation === RelationStatus.WAR || (rival.attitude === 'AGGRESSIVE' && rival.relation !== RelationStatus.FRIENDLY);
           
-          if (isThreat && isEnemy && Math.random() < 0.005) {
+          if (isThreat && isEnemy && Math.random() < raidChance) {
              // Raid triggers!
              const stolenGold = Math.floor(resources.gold * 0.1);
-             setResources(r => ({ ...r, gold: Math.max(0, r.gold - stolenGold) }));
-             addLog(`BASKIN! ${rival.name} sınırlarınızı ihlal etti ve ${stolenGold} altın yağmaladı!`, 'war');
+             const lostSoldiers = Math.floor((resources.soldiers || 0) * 0.1);
+             const landDamage = 2; // Raid destroys land capacity!
+
+             setResources(r => ({ 
+                 ...r, 
+                 gold: Math.max(0, r.gold - stolenGold),
+                 soldiers: Math.max(0, (r.soldiers || 0) - lostSoldiers),
+                 maxLand: Math.max(r.land, r.maxLand - landDamage) 
+             }));
+             
+             const raidMsg = isPredatory 
+                ? `FIRSATÇI SALDIRI! ${rival.name} savunmasızlığımızı görüp saldırdı!`
+                : `BASKIN! ${rival.name} saldırdı!`;
+
+             addLog(`${raidMsg} ${stolenGold} altın yağmalandı, askerler şehit düştü.`, 'war');
              return { ...rival, wealth: rival.wealth + stolenGold, strength: rival.strength * 1.05 };
           }
 
@@ -562,12 +674,15 @@ const App: React.FC = () => {
            scienceIncome += (b.production.science || 0) * effectiveBuildings * efficiencyMult;
            popGrowth += (b.production.population || 0) * effectiveBuildings * popMult;
         });
+        
+        // Global Multipliers
+        const globalMult = isGoldenAgeActive ? 2.0 : 1.0;
 
         return {
           ...prev,
-          gold: prev.gold + income,
-          population: prev.population + popGrowth,
-          science: prev.science + scienceIncome
+          gold: prev.gold + (income * globalMult),
+          population: prev.population + (popGrowth * globalMult),
+          science: prev.science + (scienceIncome * globalMult)
         };
       });
 
@@ -623,7 +738,7 @@ const App: React.FC = () => {
     }, TICK_RATE_MS);
 
     return () => clearInterval(interval);
-  }, [isLoaded, resources.population, buildings, era, activeCrisis, showEraTransition, resources.gold, nextEraInfo, getEfficiencyMultiplier, rivals, calculateMilitaryStrength]);
+  }, [isLoaded, resources.population, buildings, era, activeCrisis, showEraTransition, resources.gold, nextEraInfo, getEfficiencyMultiplier, rivals, calculateMilitaryStrength, isGoldenAgeActive]);
 
 
   // --- Render Helpers ---
@@ -684,9 +799,22 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* Full Screen Crisis Modal */}
+      {activeCrisis && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+             <CrisisAlert 
+                crisis={activeCrisis} 
+                resources={resources} 
+                onResolve={() => handleResolveCrisis('solve')}
+                onIgnore={() => handleResolveCrisis('ignore')}
+             />
+        </div>
+      )}
+
       <SnapshotModal 
         isOpen={isSnapshotModalOpen} 
         onClose={() => setIsSnapshotModalOpen(false)} 
+        onRetry={handleTakeSnapshot}
         imageData={snapshotImage}
         textSummary={getEmpireSummary()}
         isLoading={isGeneratingSnapshot}
@@ -717,17 +845,6 @@ const App: React.FC = () => {
              {/* Left Side: Visuals & Status */}
              <div className="lg:col-span-5 flex flex-col gap-4">
                 <CivilizationVisual era={era} dominantStyle={dominantStyle} climate={climate} />
-                
-                {activeCrisis && (
-                  <div className="animate-bounce-in">
-                     <CrisisAlert 
-                        crisis={activeCrisis} 
-                        resources={resources} 
-                        onResolve={() => handleResolveCrisis('solve')}
-                        onIgnore={() => handleResolveCrisis('ignore')}
-                     />
-                  </div>
-                )}
              </div>
 
              {/* Right Side: Interaction Tabs */}
@@ -766,25 +883,37 @@ const App: React.FC = () => {
                 {/* Tab Content */}
                 <div className="p-4">
                     {activeTab === 'production' ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                           {buildings.filter(b => b.era === era || b.count > 0).map(building => (
-                              <BuildingCard
-                                key={building.id}
-                                building={building}
-                                resources={resources}
-                                availableWorkers={availableWorkers}
-                                onBuy={handleBuyBuilding}
-                                onWorkerChange={handleWorkerAssignment}
-                                unlockedTechs={unlockedTechs}
-                                allTechs={TECHNOLOGIES}
-                              />
-                            ))}
-                            {buildings.filter(b => b.era === era || b.count > 0).length === 0 && (
-                               <div className="col-span-full text-center py-10 text-gray-500 italic">
-                                  Bu çağda inşa edilecek yeni bir yapı yok.
-                               </div>
-                            )}
-                        </div>
+                        <>
+                           {/* Imperial Projects (Resource Sinks) */}
+                           <ImperialProjects 
+                              resources={resources}
+                              onGoldenAge={handleGoldenAge}
+                              onFestival={handleFestival}
+                              onScienceGrant={handleScienceGrant}
+                              onLandReclamation={handleLandReclamation}
+                              isGoldenAgeActive={isGoldenAgeActive}
+                           />
+
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {buildings.filter(b => b.era === era || b.count > 0).map(building => (
+                                 <BuildingCard
+                                   key={building.id}
+                                   building={building}
+                                   resources={resources}
+                                   availableWorkers={availableWorkers}
+                                   onBuy={handleBuyBuilding}
+                                   onWorkerChange={handleWorkerAssignment}
+                                   unlockedTechs={unlockedTechs}
+                                   allTechs={TECHNOLOGIES}
+                                 />
+                               ))}
+                               {buildings.filter(b => b.era === era || b.count > 0).length === 0 && (
+                                  <div className="col-span-full text-center py-10 text-gray-500 italic">
+                                     Bu çağda inşa edilecek yeni bir yapı yok.
+                                  </div>
+                               )}
+                           </div>
+                        </>
                     ) : activeTab === 'research' ? (
                         <TechTree 
                           technologies={TECHNOLOGIES} 
@@ -792,6 +921,8 @@ const App: React.FC = () => {
                           resources={resources}
                           currentEra={era}
                           onResearch={handleResearch}
+                          futureTechLevel={futureTechLevel}
+                          onFutureResearch={handleFutureResearch}
                         />
                     ) : (
                         <DiplomacyPanel 
@@ -802,6 +933,7 @@ const App: React.FC = () => {
                           onTrade={handleTradeRival}
                           onImproveRelations={handleImproveRelations}
                           onRecruit={handleRecruitSoldier}
+                          gameTime={gameTime}
                         />
                     )}
                 </div>

@@ -4,7 +4,8 @@ import { Era, BuildingStyle, Climate } from '../types';
 import { 
   Castle, Tent, Factory, Landmark, Shield, Coins, Wheat, Cloud, Sun, Moon, Stars, 
   Snowflake, Palmtree, ThermometerSun, Trees, Gem, TrendingUp, 
-  CloudRain, Wind, Skull, Crown, Swords, Target, Anchor, Zap, Building2
+  CloudRain, Wind, Skull, Crown, Swords, Target, Zap, Building2, Mountain, 
+  Waves, Cog, Binary, Signal, TentTree, Sparkles, Flag
 } from 'lucide-react';
 
 interface CivilizationVisualProps {
@@ -18,6 +19,47 @@ export const CivilizationVisual: React.FC<CivilizationVisualProps> = ({ era, dom
   const isEconomic = dominantStyle === BuildingStyle.ECONOMIC;
   const isMilitary = dominantStyle === BuildingStyle.MILITARY;
 
+  // --- Style Overlay Effects ---
+  const renderStyleEffects = () => {
+    if (isMilitary) {
+      return (
+        <div className="absolute inset-0 pointer-events-none z-20">
+           {/* Pulsing Red Overlay - Low Opacity */}
+           <div className="absolute inset-0 bg-gradient-to-t from-red-900/10 via-transparent to-transparent animate-pulse-slow"></div>
+           
+           {/* Floating Embers */}
+           <div className="absolute bottom-0 left-[30%] w-1 h-1 bg-red-500 rounded-full animate-float-up opacity-0 blur-[1px]" style={{animationDuration: '3s', animationDelay: '0s'}}></div>
+           <div className="absolute bottom-0 right-[30%] w-1.5 h-1.5 bg-red-600 rounded-full animate-float-up opacity-0 blur-[1px]" style={{animationDuration: '4s', animationDelay: '1.5s'}}></div>
+           
+           {/* Distant Banners for Non-Tribal */}
+           {era !== Era.TRIBAL && (
+             <>
+               <div className="absolute bottom-[20%] left-[15%] text-red-800/40 animate-sway origin-bottom transform scale-75 opacity-60"><Flag size={16} fill="currentColor" /></div>
+               <div className="absolute bottom-[20%] right-[15%] text-red-800/40 animate-sway origin-bottom transform scale-75 opacity-60" style={{animationDelay: '2s'}}><Flag size={16} fill="currentColor" /></div>
+             </>
+           )}
+        </div>
+      );
+    }
+    if (isEconomic) {
+      return (
+        <div className="absolute inset-0 pointer-events-none z-20">
+           {/* Shimmering Gold Overlay - Low Opacity */}
+           <div className="absolute inset-0 bg-gradient-to-t from-amber-500/5 via-transparent to-transparent animate-pulse-slow"></div>
+           
+           {/* Sparkles */}
+           <div className="absolute top-[40%] left-[20%] text-yellow-300/40 animate-twinkle"><Sparkles size={12} /></div>
+           <div className="absolute top-[30%] right-[25%] text-amber-200/40 animate-twinkle" style={{animationDelay: '1.5s'}}><Sparkles size={8} /></div>
+           
+           {/* Rising Gold Dust */}
+           <div className="absolute bottom-0 left-[40%] w-0.5 h-0.5 bg-yellow-400 rounded-full animate-float-up opacity-0" style={{animationDuration: '5s'}}></div>
+           <div className="absolute bottom-0 right-[40%] w-0.5 h-0.5 bg-yellow-400 rounded-full animate-float-up opacity-0" style={{animationDuration: '7s', animationDelay: '2.5s'}}></div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   // --- Weather & Atmosphere Logic ---
   const getClimateStyles = (isNight: boolean) => {
     let styles = {
@@ -30,26 +72,21 @@ export const CivilizationVisual: React.FC<CivilizationVisualProps> = ({ era, dom
     switch (climate) {
       case Climate.ARCTIC:
         styles = {
-          bg: isNight ? 'bg-slate-900' : 'bg-slate-100',
-          ground: isNight ? 'from-slate-800 to-slate-900' : 'from-slate-200 to-white',
+          bg: isNight ? 'bg-slate-950' : 'bg-slate-200',
+          ground: isNight ? 'from-slate-800 to-slate-900' : 'from-slate-100 to-white',
           accent: isNight ? 'text-blue-200' : 'text-slate-400',
           weather: (
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              {/* Snow layer 1 */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-20">
               <div className="absolute top-[-20%] left-[10%] animate-snow opacity-60 text-white" style={{animationDuration: '5s'}}>
                  <Snowflake size={10} />
               </div>
-              <div className="absolute top-[-20%] left-[30%] animate-snow opacity-80 text-white" style={{animationDuration: '7s', animationDelay: '1s'}}>
+              <div className="absolute top-[-20%] left-[50%] animate-snow opacity-80 text-white" style={{animationDuration: '7s', animationDelay: '1s'}}>
                  <Snowflake size={14} />
-              </div>
-              <div className="absolute top-[-20%] left-[60%] animate-snow opacity-50 text-white" style={{animationDuration: '6s', animationDelay: '2.5s'}}>
-                 <Snowflake size={8} />
               </div>
               <div className="absolute top-[-20%] left-[85%] animate-snow opacity-70 text-white" style={{animationDuration: '8s', animationDelay: '0.5s'}}>
                  <Snowflake size={12} />
               </div>
-              {/* Wind effect */}
-              <div className="absolute top-1/3 w-full h-32 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-pulse transform -skew-x-12"></div>
+              <div className="absolute inset-0 bg-white/10 mix-blend-overlay"></div>
             </div>
           )
         };
@@ -57,22 +94,19 @@ export const CivilizationVisual: React.FC<CivilizationVisualProps> = ({ era, dom
 
       case Climate.ARID:
         styles = {
-          bg: isNight ? 'bg-stone-950' : 'bg-amber-100',
-          ground: isNight ? 'from-stone-800 to-stone-900' : 'from-orange-200 to-amber-200',
+          bg: isNight ? 'bg-stone-950' : 'bg-orange-100',
+          ground: isNight ? 'from-stone-800 to-stone-900' : 'from-orange-200 to-amber-100',
           accent: 'text-orange-600',
           weather: (
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              {/* Heat Haze / Sandstorm overlay */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-20">
               <div className={`absolute inset-0 ${isNight ? 'bg-orange-900/10' : 'bg-orange-500/10'} mix-blend-multiply`}></div>
               {!isNight && (
                 <>
-                  <div className="absolute bottom-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-amber-500/20 to-transparent animate-scan" style={{animationDuration: '8s', transform: 'rotate(90deg)', opacity: 0.3}}></div>
-                  <div className="absolute top-10 right-10 text-orange-500/40 animate-pulse-slow"><Sun size={60} /></div>
+                  <div className="absolute bottom-0 left-0 w-[200%] h-full bg-gradient-to-r from-transparent via-amber-500/10 to-transparent animate-scan" style={{animationDuration: '8s', transform: 'rotate(90deg)', opacity: 0.3}}></div>
+                  <div className="absolute top-4 right-4 text-orange-500/40 animate-pulse-slow"><Sun size={60} /></div>
+                  <div className="absolute top-1/2 left-1/4 w-1 h-1 bg-orange-400 rounded-full blur-[1px] animate-float-up opacity-50"></div>
                 </>
               )}
-              {/* Dust particles */}
-              <div className="absolute top-1/2 left-1/4 w-2 h-2 bg-orange-400 rounded-full blur-[1px] animate-float-up opacity-50"></div>
-              <div className="absolute bottom-1/3 right-1/3 w-3 h-3 bg-amber-600 rounded-full blur-[2px] animate-float-up opacity-30" style={{animationDelay: '1s'}}></div>
             </div>
           )
         };
@@ -80,16 +114,15 @@ export const CivilizationVisual: React.FC<CivilizationVisualProps> = ({ era, dom
 
       case Climate.TROPICAL:
         styles = {
-          bg: isNight ? 'bg-teal-950' : 'bg-emerald-900',
-          ground: isNight ? 'from-emerald-950 to-teal-950' : 'from-emerald-600 to-teal-700',
+          bg: isNight ? 'bg-teal-950' : 'bg-cyan-900',
+          ground: isNight ? 'from-emerald-950 to-teal-950' : 'from-emerald-600 to-teal-800',
           accent: 'text-emerald-300',
           weather: (
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              {/* Rain */}
-              {[...Array(15)].map((_, i) => (
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-20">
+              {[...Array(10)].map((_, i) => (
                 <div 
                   key={i}
-                  className="absolute w-[1px] h-8 bg-blue-200/40 animate-rain"
+                  className="absolute w-[1px] h-8 bg-blue-200/30 animate-rain"
                   style={{
                     left: `${Math.random() * 100}%`,
                     top: `-${Math.random() * 20}%`,
@@ -98,8 +131,7 @@ export const CivilizationVisual: React.FC<CivilizationVisualProps> = ({ era, dom
                   }}
                 ></div>
               ))}
-              <div className="absolute inset-0 bg-blue-900/10 mix-blend-overlay"></div>
-              {!isNight && <div className="absolute top-4 left-1/3 opacity-40 text-gray-300 animate-float-up"><CloudRain size={48} /></div>}
+              {!isNight && <div className="absolute top-4 left-1/3 opacity-30 text-white animate-float-up"><CloudRain size={48} /></div>}
             </div>
           )
         };
@@ -108,15 +140,15 @@ export const CivilizationVisual: React.FC<CivilizationVisualProps> = ({ era, dom
       case Climate.TEMPERATE:
       default:
         styles = {
-          bg: isNight ? 'bg-slate-900' : 'bg-sky-300',
-          ground: isNight ? 'from-stone-900 to-black' : 'from-emerald-500 to-emerald-400',
+          bg: isNight ? 'bg-indigo-950' : 'bg-sky-300',
+          ground: isNight ? 'from-stone-900 to-black' : 'from-green-500 to-emerald-400',
           accent: 'text-green-800',
           weather: (
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-20">
                {!isNight ? (
                  <>
-                    <div className="absolute top-8 left-[10%] text-white/80 animate-float-up" style={{animationDuration: '15s'}}><Cloud size={64} fill="white" /></div>
-                    <div className="absolute top-16 left-[60%] text-white/60 animate-float-up" style={{animationDuration: '20s', animationDelay: '5s'}}><Cloud size={40} fill="white" /></div>
+                    <div className="absolute top-8 left-[10%] text-white/70 animate-float-up" style={{animationDuration: '25s'}}><Cloud size={64} fill="white" /></div>
+                    <div className="absolute top-16 left-[70%] text-white/50 animate-float-up" style={{animationDuration: '35s', animationDelay: '5s'}}><Cloud size={40} fill="white" /></div>
                     <div className="absolute top-4 right-[10%] text-yellow-300 animate-spin-slow"><Sun size={48} /></div>
                  </>
                ) : (
@@ -136,54 +168,61 @@ export const CivilizationVisual: React.FC<CivilizationVisualProps> = ({ era, dom
     const styles = getClimateStyles(true);
     
     return (
-      <div className={`relative w-full h-full overflow-hidden ${styles.bg} transition-colors duration-1000`}>
+      <div className={`relative w-full h-full overflow-hidden ${styles.bg} transition-colors duration-1000 group`}>
+        {/* Background Elements */}
+        <div className="absolute bottom-1/3 left-0 w-full flex items-end opacity-20 text-gray-900">
+             <Mountain size={180} strokeWidth={1} className="transform -translate-x-10 translate-y-10" />
+             <Mountain size={240} strokeWidth={1} className="transform translate-x-0 translate-y-5" />
+             <Mountain size={150} strokeWidth={1} className="transform translate-x-10 translate-y-10" />
+        </div>
+        
         {/* Sky */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-950/50 to-black opacity-60"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-950/40 to-black/80 opacity-80"></div>
         <div className="absolute top-6 left-1/4 text-yellow-100 opacity-90 animate-pulse-slow"><Moon size={24} /></div>
         <div className="absolute top-10 right-10 text-white animate-twinkle"><Stars size={14} /></div>
+        <div className="absolute top-20 left-10 text-white/50 animate-twinkle" style={{animationDelay: '1s'}}><Stars size={10} /></div>
 
         {/* Ground */}
-        <div className={`absolute bottom-0 w-full h-1/3 bg-gradient-to-t ${styles.ground}`}></div>
+        <div className={`absolute bottom-0 w-full h-1/3 bg-gradient-to-t ${styles.ground} clip-path-hill`}></div>
 
         {/* Structure Layer */}
-        <div className="absolute bottom-10 w-full flex justify-center items-end gap-4">
+        <div className="absolute bottom-6 w-full flex justify-center items-end gap-2 z-10">
+           {/* Campfire Glow */}
+           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-16 h-16 bg-orange-500/30 blur-xl rounded-full animate-pulse"></div>
+
            {isMilitary ? (
-              // Military Tribal: Shield walls, spears, organized camp
-              <div className="flex items-end gap-1 transform scale-110">
-                 <div className="relative group">
-                    <Tent size={56} className="text-red-900 fill-red-950/50 stroke-[1.5]" />
-                    <div className="absolute -top-4 -right-2 text-red-500 animate-pulse"><Target size={16} /></div>
+              <div className="flex items-end gap-[-5px] transform scale-105">
+                 <div className="relative z-10">
+                    <Tent size={52} className="text-red-900 fill-red-950/80 stroke-[1.5]" />
+                    <div className="absolute -top-6 -right-2 text-red-500 animate-pulse"><Target size={16} /></div>
                  </div>
-                 <Tent size={40} className="text-stone-600 fill-stone-800" />
-                 <div className="absolute bottom-0 -left-6 opacity-60"><Shield size={24} className="text-stone-400 rotate-12" /></div>
-                 <div className="absolute bottom-0 -right-6 opacity-60"><Shield size={24} className="text-stone-400 -rotate-12" /></div>
+                 <div className="transform -translate-x-2 translate-y-1 opacity-80">
+                    <Tent size={36} className="text-stone-700 fill-stone-900" />
+                 </div>
+                 <div className="absolute bottom-0 -left-6 opacity-60"><Shield size={24} className="text-stone-500 rotate-12" /></div>
               </div>
            ) : isEconomic ? (
-              // Economic Tribal: Larger tents, goods piles
-              <div className="flex items-end gap-2 transform scale-110">
-                  <div className="relative">
-                     <Tent size={64} className="text-amber-700 fill-amber-900/50 stroke-[1.5]" />
-                     <div className="absolute bottom-1 right-1/2 translate-x-1/2 text-yellow-500"><Coins size={12} /></div>
+              <div className="flex items-end gap-1 transform scale-105">
+                  <div className="relative z-10">
+                     <TentTree size={58} className="text-amber-700 fill-amber-900/60 stroke-[1.5]" />
+                     <div className="absolute bottom-2 right-1/2 translate-x-1/2 text-yellow-500/80"><Coins size={10} /></div>
                   </div>
-                  <div className="flex flex-col gap-1 mb-1">
-                      <div className="w-4 h-4 bg-amber-600 rounded-sm border border-amber-800"></div>
-                      <div className="w-5 h-5 bg-amber-700 rounded-sm border border-amber-900"></div>
+                  <div className="flex flex-col gap-0.5 mb-1 opacity-70">
+                      <div className="w-5 h-5 bg-amber-800 rounded-sm border border-amber-950 transform rotate-3"></div>
+                      <div className="w-6 h-6 bg-amber-800 rounded-sm border border-amber-950 transform -rotate-2"></div>
                   </div>
               </div>
            ) : (
-              // Default Tribal
-              <div className="flex items-end gap-2">
-                 <Tent size={48} className={`${styles.accent} fill-black/20`} />
-                 <div className="mb-2 animate-pulse text-orange-500"><Zap size={12} fill="orange" /></div> 
-                 <Tent size={32} className={`${styles.accent} fill-black/20`} />
+              <div className="flex items-end gap-[-10px]">
+                 <Tent size={44} className={`${styles.accent} fill-black/40`} />
+                 <div className="mb-1 animate-pulse text-orange-500 relative z-20"><Zap size={14} fill="orange" /></div> 
+                 <Tent size={32} className={`${styles.accent} fill-black/40`} />
               </div>
            )}
         </div>
         
-        {/* Bonfire effect (common to tribal) */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-orange-500/20 blur-xl rounded-full animate-pulse"></div>
-
         {styles.weather}
+        {renderStyleEffects()}
       </div>
     );
   };
@@ -192,197 +231,205 @@ export const CivilizationVisual: React.FC<CivilizationVisualProps> = ({ era, dom
     const styles = getClimateStyles(false);
     
     return (
-      <div className={`relative w-full h-full overflow-hidden ${styles.bg} transition-colors duration-1000`}>
-        {/* Background Landscape */}
-        <div className="absolute bottom-1/3 w-full flex justify-center opacity-60">
-             <div className={`w-full h-32 bg-gradient-to-t ${styles.ground} opacity-50 transform scale-y-150 origin-bottom rounded-[100%]`}></div>
-        </div>
+      <div className={`relative w-full h-full overflow-hidden ${styles.bg} transition-colors duration-1000 group`}>
+        {/* Rolling Hills Background */}
+        <div className="absolute bottom-0 w-[120%] -left-[10%] h-1/2 bg-gradient-to-t from-green-800 to-green-600 rounded-[100%] transform scale-y-50 translate-y-10 opacity-80"></div>
+        <div className="absolute bottom-0 w-[120%] -right-[10%] h-1/2 bg-gradient-to-t from-emerald-800 to-emerald-500 rounded-[100%] transform scale-y-75 translate-y-16 opacity-60"></div>
 
-        {/* Ground */}
-        <div className={`absolute bottom-0 w-full h-1/3 bg-gradient-to-t ${styles.ground}`}></div>
+        {/* River (if water/temperate) */}
+        {climate !== Climate.ARID && (
+             <div className="absolute bottom-0 right-0 w-full h-24 bg-blue-400/30 transform skew-x-12 translate-y-12 blur-sm"></div>
+        )}
 
         {/* Field Crops */}
-        <div className="absolute bottom-2 left-0 w-full flex justify-around text-yellow-700/60">
-             {[...Array(8)].map((_, i) => (
-                <Wheat key={i} size={24 + Math.random()*16} className="animate-sway" style={{animationDelay: `${i * 0.2}s`}} />
+        <div className="absolute bottom-0 left-0 w-full flex justify-between px-8 text-yellow-700/50 z-0">
+             {[...Array(12)].map((_, i) => (
+                <Wheat key={i} size={16 + Math.random()*12} className="animate-sway origin-bottom" style={{animationDelay: `${i * 0.2}s`, animationDuration: '3s'}} />
              ))}
         </div>
 
         {/* Structures */}
-        <div className="absolute bottom-12 w-full flex justify-center items-end">
+        <div className="absolute bottom-6 w-full flex justify-center items-end z-10 drop-shadow-lg">
            {isMilitary ? (
-              // Military: Stone Castle, Banners
               <div className="relative flex flex-col items-center">
-                 <div className="absolute -top-6 flex gap-8 w-full justify-between px-4">
-                    <div className="bg-red-700 w-3 h-4 animate-sway origin-top shadow-sm"></div>
-                    <div className="bg-red-700 w-3 h-4 animate-sway origin-top shadow-sm" style={{animationDelay: '0.5s'}}></div>
+                 <div className="absolute -top-6 flex gap-12 w-full justify-between px-2">
+                    <div className="bg-red-700 w-2 h-3 animate-sway origin-top"></div>
+                    <div className="bg-red-700 w-2 h-3 animate-sway origin-top" style={{animationDelay: '0.5s'}}></div>
                  </div>
-                 <Castle size={96} className="text-stone-700 fill-stone-400" strokeWidth={1.5} />
-                 <div className="absolute bottom-0 w-full flex justify-between px-2">
-                    <Shield size={20} className="text-stone-600 fill-red-900" />
-                    <Shield size={20} className="text-stone-600 fill-red-900" />
+                 <Castle size={90} className="text-stone-700 fill-stone-300" strokeWidth={1.5} />
+                 <div className="absolute bottom-0 w-full flex justify-between px-1">
+                    <div className="bg-stone-600 h-8 w-2 rounded-t"></div>
+                    <div className="bg-stone-600 h-8 w-2 rounded-t"></div>
                  </div>
               </div>
            ) : isEconomic ? (
-              // Economic: Market Town, Windmill/Shop, Golden glow
-              <div className="relative flex items-end gap-2">
-                 <div className="absolute -top-10 left-1/2 -translate-x-1/2 text-yellow-500/30 animate-ping"><Sun size={40} /></div>
-                 <Landmark size={80} className="text-amber-800 fill-amber-100" strokeWidth={1.5} />
-                 <div className="flex flex-col items-center pb-1">
-                    <div className="bg-red-500/80 w-8 h-4 rounded-t-lg mb-1"></div> {/* Stall roof */}
-                    <div className="border-2 border-amber-900 bg-amber-200 w-8 h-6"></div>
+              <div className="relative flex items-end gap-1">
+                 <div className="absolute -top-6 left-2 animate-spin-slow origin-center opacity-80">
+                     <Wind size={40} className="text-amber-800" />
                  </div>
-                 <div className="absolute -right-8 bottom-4 animate-bounce-slow text-yellow-600">
-                    <Coins size={20} />
+                 <Landmark size={76} className="text-amber-900 fill-amber-100" strokeWidth={1.5} />
+                 <div className="flex flex-col items-center pb-0">
+                    <div className="bg-red-500 w-10 h-4 rounded-t-full mb-0.5 shadow-sm"></div> {/* Stall roof */}
+                    <div className="border border-amber-900 bg-amber-200 w-10 h-6 flex justify-center">
+                        <div className="w-2 h-4 bg-amber-900/20 mt-2"></div>
+                    </div>
                  </div>
               </div>
            ) : (
-              // Default: Village
-              <div className="flex items-end gap-1">
+              <div className="flex items-end gap-2">
                   <Building2 size={48} className="text-amber-900 fill-amber-200" />
+                  <div className="bg-stone-400 w-20 h-1 absolute bottom-0 -z-10 rounded"></div> {/* Road */}
                   <Building2 size={32} className="text-amber-900 fill-amber-200" />
               </div>
            )}
         </div>
 
         {styles.weather}
+        {renderStyleEffects()}
       </div>
     );
   };
 
   const renderIndustrial = () => {
     // Industrial base color overrides
-    const skyColor = climate === Climate.ARCTIC ? 'bg-slate-300' : climate === Climate.ARID ? 'bg-amber-200' : 'bg-gray-400';
+    const skyColor = climate === Climate.ARCTIC ? 'bg-slate-300' : climate === Climate.ARID ? 'bg-amber-200' : 'bg-stone-400';
     
     return (
       <div className={`relative w-full h-full overflow-hidden ${skyColor} transition-colors duration-1000`}>
         {/* Smog/Smoke Layers */}
-        <div className={`absolute inset-0 ${isEconomic ? 'bg-yellow-700/10' : 'bg-gray-900/20'}`}></div>
+        <div className={`absolute inset-0 ${isEconomic ? 'bg-amber-900/10' : 'bg-gray-900/30'}`}></div>
+        <div className="absolute top-10 left-0 w-full h-20 bg-gradient-to-b from-gray-800/20 to-transparent blur-xl"></div>
         
         {/* Skyline Silhouette */}
-        <div className="absolute bottom-1/4 w-full flex items-end justify-center opacity-40 gap-1">
-           <div className="w-8 h-24 bg-black/30"></div>
-           <div className="w-12 h-32 bg-black/40"></div>
-           <div className="w-16 h-16 bg-black/30"></div>
-           <div className="w-10 h-40 bg-black/50"></div>
+        <div className="absolute bottom-10 w-full flex items-end justify-center opacity-30 gap-0.5 text-gray-800">
+           <div className="w-6 h-16 bg-current"></div>
+           <div className="w-8 h-24 bg-current"></div>
+           <div className="w-12 h-12 bg-current"></div>
+           <div className="w-10 h-32 bg-current"></div>
+           <div className="w-14 h-20 bg-current"></div>
+           <div className="w-6 h-10 bg-current"></div>
+        </div>
+
+        {/* Moving Gear Decoration */}
+        <div className="absolute top-4 right-4 text-gray-600/20 animate-spin-slow">
+            <Cog size={80} />
+        </div>
+        <div className="absolute top-12 right-16 text-gray-600/20 animate-spin-slow" style={{ animationDirection: 'reverse' }}>
+            <Cog size={50} />
         </div>
 
         {/* Ground */}
-        <div className="absolute bottom-0 w-full h-1/4 bg-gradient-to-t from-gray-900 via-gray-800 to-transparent"></div>
+        <div className="absolute bottom-0 w-full h-8 bg-[#2a2a2a]"></div>
+        <div className="absolute bottom-6 w-full h-2 bg-[#3a3a3a]"></div>
 
         {/* Structures */}
-        <div className="absolute bottom-8 w-full flex justify-center items-end">
+        <div className="absolute bottom-6 w-full flex justify-center items-end z-10">
            {isMilitary ? (
-              // Military: Bunkers, Fortresses, Steel
               <div className="relative">
-                 <div className="absolute -top-12 left-0 w-full flex justify-center opacity-50">
-                    <Skull size={64} className="text-gray-700" />
+                 <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-60">
+                    <Shield size={40} className="text-gray-600" />
                  </div>
-                 <Castle size={100} className="text-slate-800 fill-slate-600" strokeWidth={2} />
-                 {/* Barbed wire suggestion */}
-                 <div className="absolute bottom-2 -left-10 w-[180%] h-4 border-t-2 border-dashed border-gray-900 flex justify-between">
-                    <div className="w-1 h-3 bg-gray-900 transform rotate-45"></div>
-                    <div className="w-1 h-3 bg-gray-900 transform rotate-45"></div>
-                    <div className="w-1 h-3 bg-gray-900 transform rotate-45"></div>
+                 <Castle size={96} className="text-slate-800 fill-slate-500" strokeWidth={2} />
+                 {/* Chimneys */}
+                 <div className="absolute top-4 -right-4 w-3 h-12 bg-slate-700">
+                    <div className="absolute -top-4 -left-2 text-gray-500/50 animate-float-up"><Cloud size={16} fill="gray"/></div>
                  </div>
               </div>
            ) : isEconomic ? (
-              // Economic: Grand Bank, Gold accents
               <div className="relative">
-                 <Landmark size={110} className="text-slate-800 fill-gray-200" />
-                 <div className="absolute top-4 left-1/2 -translate-x-1/2 text-green-700 font-bold bg-green-100 px-2 rounded border border-green-600 text-[10px]">BANK</div>
-                 <div className="absolute -top-8 -right-8 text-green-600 animate-pulse">
-                    <TrendingUp size={32} />
-                 </div>
-                 <div className="absolute bottom-0 -left-12">
-                    <div className="w-8 h-10 bg-yellow-600/20 border border-yellow-600 rounded flex items-center justify-center">
-                       <Gem size={16} className="text-yellow-500" />
-                    </div>
+                 <Landmark size={100} className="text-slate-800 fill-gray-300" />
+                 <div className="absolute top-6 left-1/2 -translate-x-1/2 text-green-800 font-bold bg-green-100/80 px-2 py-0.5 rounded border border-green-600 text-[8px] shadow-sm">STOCK EXCH</div>
+                 <div className="absolute -top-6 -right-6 text-green-700 animate-pulse">
+                    <TrendingUp size={28} />
                  </div>
               </div>
            ) : (
-              // Default: Factories
               <div className="relative">
-                 <Factory size={96} className="text-gray-800 fill-gray-600" />
-                 <div className="absolute -top-8 left-4 text-gray-600/80 animate-float-up"><Cloud size={24} fill="gray" /></div>
-                 <div className="absolute -top-14 left-8 text-gray-500/60 animate-float-up" style={{animationDelay: '1s'}}><Cloud size={20} fill="gray" /></div>
+                 <Factory size={88} className="text-gray-800 fill-gray-600" />
+                 <div className="absolute -top-8 left-4 text-gray-700/60 animate-float-up"><Cloud size={20} fill="black" /></div>
+                 <div className="absolute -top-12 left-10 text-gray-700/40 animate-float-up" style={{animationDelay: '1.2s'}}><Cloud size={16} fill="black" /></div>
               </div>
            )}
         </div>
         
-        {/* Weather integration (Snow/Rain on top of smog) */}
         {climate !== Climate.ARID && getClimateStyles(true).weather}
+        {renderStyleEffects()}
       </div>
     );
   };
 
   const renderTechnological = () => {
-    const styles = getClimateStyles(true);
     const themeColor = isMilitary ? 'text-red-500' : isEconomic ? 'text-amber-400' : 'text-cyan-400';
-    const glowColor = isMilitary ? 'shadow-red-500/50' : isEconomic ? 'shadow-amber-500/50' : 'shadow-cyan-500/50';
-    const bgGradient = isMilitary ? 'from-red-900/20' : isEconomic ? 'from-amber-900/20' : 'from-cyan-900/20';
-
+    const gridColor = isMilitary ? '#7f1d1d' : isEconomic ? '#78350f' : '#0e7490';
+    
     return (
       <div className="relative w-full h-full overflow-hidden bg-black transition-colors duration-1000">
-        {/* Cyber Grid */}
+        {/* Retro Wave Grid Floor */}
         <div 
-            className="absolute bottom-0 w-full h-1/2 opacity-40"
+            className="absolute bottom-0 w-full h-[60%] opacity-50"
             style={{
-                background: `linear-gradient(transparent 95%, ${isMilitary ? '#ef4444' : isEconomic ? '#f59e0b' : '#06b6d4'} 95%), linear-gradient(90deg, transparent 95%, ${isMilitary ? '#ef4444' : isEconomic ? '#f59e0b' : '#06b6d4'} 95%)`,
+                background: `
+                    linear-gradient(transparent 95%, ${gridColor} 95%),
+                    linear-gradient(90deg, transparent 95%, ${gridColor} 95%)
+                `,
                 backgroundSize: '40px 40px',
-                transform: 'perspective(500px) rotateX(60deg)',
-                transformOrigin: 'bottom'
+                transform: 'perspective(300px) rotateX(60deg) scale(1.5)',
+                transformOrigin: 'bottom center',
+                boxShadow: `0 -20px 20px ${gridColor}`
             }}
         ></div>
 
-        {/* Sky Gradient */}
-        <div className={`absolute inset-0 bg-gradient-to-b ${bgGradient} to-transparent opacity-50`}></div>
+        {/* Horizon Glow */}
+        <div className={`absolute bottom-[40%] left-0 w-full h-32 bg-gradient-to-t from-${isMilitary ? 'red' : isEconomic ? 'amber' : 'cyan'}-900/50 to-transparent blur-xl`}></div>
 
-        {/* Floating Elements */}
-        <div className={`absolute top-12 left-12 animate-bounce-slow ${themeColor}`}>
-           {isMilitary ? <Target size={32} /> : isEconomic ? <Gem size={32} /> : <Zap size={32} />}
+        {/* Floating Data Streams */}
+        <div className={`absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none`}>
+            <div className="absolute top-10 left-[20%] animate-scan" style={{animationDuration: '3s'}}><Binary size={12} className={themeColor}/></div>
+            <div className="absolute top-20 left-[80%] animate-scan" style={{animationDuration: '4s'}}><Signal size={12} className={themeColor}/></div>
         </div>
 
-        {/* Main City Structures */}
-        <div className="absolute bottom-8 w-full flex justify-center items-end gap-4">
+        {/* City Structures */}
+        <div className="absolute bottom-12 w-full flex justify-center items-end gap-6 z-10">
            {isMilitary ? (
-              // Military: Red Shield Dome, Heavy outline
               <div className="relative flex items-end">
-                 <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-40 h-40 border-2 border-red-500/30 rounded-full animate-pulse"></div>
-                 <div className={`w-16 h-48 border-2 border-red-500 bg-red-950/80 shadow-[0_0_20px_rgba(239,68,68,0.4)] relative overflow-hidden`}>
-                    <div className="absolute inset-0 flex flex-col justify-evenly items-center">
-                        <Swords size={24} className="text-red-500 mb-4" />
-                        <div className="w-8 h-[2px] bg-red-500"></div>
-                        <div className="w-8 h-[2px] bg-red-500"></div>
-                        <div className="w-8 h-[2px] bg-red-500"></div>
-                    </div>
+                 {/* Force Field */}
+                 <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-32 h-32 border border-red-500/30 rounded-full animate-pulse bg-red-900/10"></div>
+                 
+                 <div className={`w-14 h-40 border border-red-500 bg-black/80 shadow-[0_0_15px_rgba(239,68,68,0.5)] relative overflow-hidden flex flex-col items-center justify-end pb-2`}>
+                    <div className="w-1 h-full bg-red-900/50 absolute left-2"></div>
+                    <div className="w-1 h-full bg-red-900/50 absolute right-2"></div>
+                    <Swords size={20} className="text-red-500 mb-2" />
                  </div>
-                 <div className="w-12 h-32 bg-red-900/50 border border-red-600 transform -skew-x-6"></div>
+                 <div className="w-10 h-24 bg-red-950/80 border border-red-700 transform skew-y-12 translate-x-1"></div>
               </div>
            ) : isEconomic ? (
-              // Economic: Golden Towers, Data Streams
-              <div className="relative flex items-end gap-2">
-                 <div className="w-20 h-56 border border-amber-400 bg-amber-900/20 shadow-[0_0_30px_rgba(245,158,11,0.3)] relative overflow-hidden">
-                    <div className="absolute inset-0 flex flex-col p-2 space-y-1">
-                       <div className="text-[8px] text-amber-400 font-mono animate-scan">BTC 94K</div>
-                       <div className="text-[8px] text-green-400 font-mono animate-scan" style={{animationDelay: '0.5s'}}>NVDA +4%</div>
-                       <div className="text-[8px] text-amber-400 font-mono animate-scan" style={{animationDelay: '1s'}}>GOLD ^^^</div>
+              <div className="relative flex items-end gap-1">
+                 {/* Holographic Ads */}
+                 <div className="absolute -top-16 left-0 text-[8px] text-amber-300 font-mono bg-black/50 border border-amber-500/50 px-1 py-0.5 rounded animate-float-up">BUY</div>
+                 <div className="absolute -top-10 right-0 text-[8px] text-green-300 font-mono bg-black/50 border border-green-500/50 px-1 py-0.5 rounded animate-float-up" style={{animationDelay: '1s'}}>SELL</div>
+
+                 <div className="w-16 h-48 border border-amber-400 bg-amber-950/40 shadow-[0_0_25px_rgba(245,158,11,0.4)] relative overflow-hidden backdrop-blur-sm">
+                    <div className="absolute inset-0 flex flex-col p-1 space-y-2 opacity-50">
+                       <div className="h-0.5 w-full bg-amber-500/50"></div>
+                       <div className="h-0.5 w-full bg-amber-500/50"></div>
+                       <div className="h-0.5 w-full bg-amber-500/50"></div>
+                       <div className="h-0.5 w-full bg-amber-500/50"></div>
                     </div>
                  </div>
-                 <div className="w-12 h-40 border border-yellow-500 bg-yellow-900/30 flex items-end justify-center pb-2">
-                    <Crown size={20} className="text-yellow-400" />
+                 <div className="w-12 h-32 border border-yellow-600 bg-black/60 flex items-end justify-center pb-2">
+                    <Crown size={18} className="text-yellow-400" />
                  </div>
               </div>
            ) : (
-              // Default: Sci-Fi City
               <div className="flex items-end gap-2">
-                 <div className="w-14 h-44 border border-cyan-500 bg-cyan-900/20 shadow-[0_0_20px_rgba(6,182,212,0.3)]"></div>
-                 <div className="w-10 h-32 border border-cyan-600 bg-cyan-950/30"></div>
+                 <div className="w-12 h-36 border border-cyan-500 bg-cyan-950/30 shadow-[0_0_20px_rgba(6,182,212,0.4)]"></div>
+                 <div className="w-8 h-24 border border-cyan-600 bg-cyan-950/30"></div>
+                 <div className="absolute -top-8 left-1/2 -translate-x-1/2"><Zap size={24} className="text-cyan-300 animate-pulse"/></div>
               </div>
            )}
         </div>
-
-        {styles.weather}
+        
+        {renderStyleEffects()}
       </div>
     );
   };
@@ -395,10 +442,10 @@ export const CivilizationVisual: React.FC<CivilizationVisualProps> = ({ era, dom
        {era === Era.TECHNOLOGICAL && renderTechnological()}
        
        {/* Vignette */}
-       <div className="absolute inset-0 shadow-[inset_0_0_60px_rgba(0,0,0,0.8)] pointer-events-none"></div>
+       <div className="absolute inset-0 shadow-[inset_0_0_60px_rgba(0,0,0,0.6)] pointer-events-none z-30"></div>
        
        {/* Climate Badge */}
-       <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full text-[9px] uppercase tracking-widest text-white/90 border border-white/10 flex items-center gap-1.5 shadow-lg z-10">
+       <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full text-[9px] uppercase tracking-widest text-white/90 border border-white/10 flex items-center gap-1.5 shadow-lg z-40">
           {climate === Climate.ARCTIC && <Snowflake size={10} className="text-blue-200" />}
           {climate === Climate.TROPICAL && <CloudRain size={10} className="text-blue-400" />}
           {climate === Climate.ARID && <Wind size={10} className="text-orange-300" />}

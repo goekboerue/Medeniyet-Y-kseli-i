@@ -1,16 +1,17 @@
 
 import React, { useState } from 'react';
-import { Download, X, Loader2, Camera, Share2, Check, FileText, Copy } from 'lucide-react';
+import { Download, X, Loader2, Camera, Share2, Check, FileText, RefreshCw } from 'lucide-react';
 
 interface SnapshotModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onRetry: () => void;
   imageData: string | null;
   textSummary: string;
   isLoading: boolean;
 }
 
-export const SnapshotModal: React.FC<SnapshotModalProps> = ({ isOpen, onClose, imageData, textSummary, isLoading }) => {
+export const SnapshotModal: React.FC<SnapshotModalProps> = ({ isOpen, onClose, onRetry, imageData, textSummary, isLoading }) => {
   const [shareSuccess, setShareSuccess] = useState<'image' | 'text' | null>(null);
 
   if (!isOpen) return null;
@@ -116,12 +117,17 @@ export const SnapshotModal: React.FC<SnapshotModalProps> = ({ isOpen, onClose, i
             </div>
           ) : (
             <div className="flex flex-col items-center gap-4 py-8">
-                <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg text-red-300 text-center">
-                   <p className="font-bold">Görüntü oluşturulamadı.</p>
-                   <p className="text-xs opacity-70">Yapay zeka sunucularında yoğunluk olabilir.</p>
-                </div>
-                <div className="text-gray-400 text-sm max-w-md text-center italic border-l-2 border-gray-700 pl-4 py-2">
-                    "{textSummary}"
+                <div className="p-6 bg-red-900/20 border border-red-500/30 rounded-lg text-red-300 text-center max-w-md">
+                   <p className="font-bold text-lg mb-2">Görüntü oluşturulamadı</p>
+                   <p className="text-sm opacity-80 mb-4">
+                     Yapay zeka modellerinde anlık yoğunluk yaşanıyor veya güvenlik filtresi devreye girdi. 
+                   </p>
+                   <button 
+                     onClick={onRetry}
+                     className="px-6 py-2 bg-red-800 hover:bg-red-700 text-white rounded shadow-lg flex items-center justify-center gap-2 mx-auto transition-colors"
+                   >
+                     <RefreshCw size={16} /> Tekrar Dene
+                   </button>
                 </div>
             </div>
           )}

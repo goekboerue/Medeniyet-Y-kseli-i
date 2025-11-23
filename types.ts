@@ -1,4 +1,5 @@
 
+
 export enum ResourceType {
   POPULATION = 'POPULATION',
   GOLD = 'GOLD',
@@ -53,6 +54,7 @@ export interface Rival {
   attitude: 'AGGRESSIVE' | 'DEFENSIVE' | 'TRADER';
   era: Era;
   lastInteractionTurn: number;
+  cooldownEnd?: number; // Game tick when rival becomes interactable again
 }
 
 export interface Technology {
@@ -118,6 +120,7 @@ export interface GameState {
   era: Era;
   buildings: Building[];
   technologies: string[]; // List of unlocked tech IDs
+  futureTechLevel: number; // Infinite research level
   gameTime: number;
   climate: Climate;
   rivals: Rival[];
