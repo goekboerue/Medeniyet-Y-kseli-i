@@ -11,7 +11,9 @@ import { EraTransitionOverlay } from './components/EraTransitionOverlay';
 import { TechTree } from './components/TechTree';
 import { SnapshotModal } from './components/SnapshotModal';
 import { generateChronicle, generateEraTransition, generateCrisisLog, generateEmpireSnapshot } from './services/geminiService';
-import { Pickaxe, Globe, Flag, ChevronRight, BrainCircuit, Camera, CloudSun, Users, ArrowRight, Lock, Palette, LayoutDashboard, FlaskConical, Hammer } from 'lucide-react';
+import { Pickaxe, Globe, Flag, ChevronRight, BrainCircuit, Camera, CloudSun, Users, ArrowRight, Lock, Palette, LayoutDashboard, FlaskConical, Hammer, Save } from 'lucide-react';
+
+const SAVE_KEY = 'civilization_rise_save_v1';
 
 const App: React.FC = () => {
   // --- State ---
@@ -25,6 +27,7 @@ const App: React.FC = () => {
   const [gameTime, setGameTime] = useState(0);
   const [activeCrisis, setActiveCrisis] = useState<Crisis | null>(null);
   const [showEraTransition, setShowEraTransition] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   
   // UI State
   const [activeTab, setActiveTab] = useState<'production' | 'research'>('production');
@@ -34,20 +37,74 @@ const App: React.FC = () => {
   const [snapshotImage, setSnapshotImage] = useState<string | null>(null);
   const [isGeneratingSnapshot, setIsGeneratingSnapshot] = useState(false);
 
-  // Initialization Logic
+  // --- Load Game Logic ---
   useEffect(() => {
-    const climates = Object.values(Climate);
-    const randomClimate = climates[Math.floor(Math.random() * climates.length)];
-    setClimate(randomClimate);
-
-    setLogs([
-      { 
-        id: 'init', 
-        timestamp: 'Başlangıç', 
-        text: `Kabileniz, ${randomClimate} iklimin hakim olduğu vahşi topraklarda küçük bir ateş yaktı. Hayatta kalma mücadelesi başlıyor.`, 
-        type: 'game' 
+    const savedData = localStorage.getItem(SAVE_KEY);
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        if (parsed.resources) setResources(parsed.resources);
+        if (parsed.unlockedTechs) setUnlockedTechs(parsed.unlockedTechs);
+        if (parsed.era) setEra(parsed.era);
+        if (parsed.climate) setClimate(parsed.climate);
+        if (parsed.gameTime) setGameTime(parsed.gameTime);
+        if (parsed.logs) setLogs(parsed.logs);
+        
+        // Merge saved buildings with definitions to ensure structure matches
+        if (parsed.buildings) {
+          setBuildings(prev => prev.map(def => {
+            const savedB = parsed.buildings.find((p: any) => p.id === def.id);
+            return savedB ? { ...def, count: savedB.count, assignedWorkers: savedB.assignedWorkers } : def;
+          }));
+        }
+      } catch (e) {
+        console.error("Save file corrupted, starting fresh.", e);
       }
-    ]);
+    } else {
+       // Initialize random climate for new game
+       const climates = Object.values(Climate);
+       const randomClimate = climates[Math.floor(Math.random() * climates.length)];
+       setClimate(randomClimate);
+       
+       setLogs([
+        { 
+          id: 'init', 
+          timestamp: 'Başlangıç', 
+          text: `Kabileniz, ${randomClimate} iklimin hakim olduğu vahşi topraklarda küçük bir ateş yaktı. Hayatta kalma mücadelesi başlıyor.`, 
+          type: 'game' 
+        }
+      ]);
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // --- Save Game Logic ---
+  useEffect(() => {
+    if (!isLoaded) return;
+    
+    const saveTimer = setTimeout(() => {
+      const stateToSave = {
+        resources,
+        buildings: buildings.map(b => ({ id: b.id, count: b.count, assignedWorkers: b.assignedWorkers })),
+        unlockedTechs,
+        era,
+        climate,
+        gameTime,
+        logs: logs.slice(-50) // Only save last 50 logs to keep storage light
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(stateToSave));
+    }, 2000); // Debounce save every 2 seconds
+
+    return () => clearTimeout(saveTimer);
+  }, [resources, buildings, unlockedTechs, era, climate, gameTime, logs, isLoaded]);
+
+
+  // --- Helper: Scaling Logic ---
+  // Returns the multiplier based on building count to create dramatic increases
+  // Example: 10 buildings = 1.6x multiplier, 50 buildings = 11.4x multiplier
+  const getEfficiencyMultiplier = useCallback((count: number) => {
+     if (count <= 1) return 1;
+     return Math.pow(1.05, count); 
   }, []);
 
   // --- Derived Stats ---
@@ -62,19 +119,22 @@ const App: React.FC = () => {
       const effectiveBuildings = b.baseCost.workers > 0 
         ? b.assignedWorkers / b.baseCost.workers
         : b.count;
-
-      return total + (b.production.gold || 0) * effectiveBuildings;
+      
+      const multiplier = getEfficiencyMultiplier(b.count);
+      return total + (b.production.gold || 0) * effectiveBuildings * multiplier;
     }, 0);
-  }, [buildings]);
+  }, [buildings, getEfficiencyMultiplier]);
   
   const calculateScienceIncome = useCallback(() => {
     return buildings.reduce((total, b) => {
       const effectiveBuildings = b.baseCost.workers > 0 
         ? b.assignedWorkers / b.baseCost.workers
         : b.count;
-      return total + (b.production.science || 0) * effectiveBuildings;
+        
+      const multiplier = getEfficiencyMultiplier(b.count);
+      return total + (b.production.science || 0) * effectiveBuildings * multiplier;
     }, 0);
-  }, [buildings]);
+  }, [buildings, getEfficiencyMultiplier]);
 
   const calculatePopulationGrowth = useCallback(() => {
     const baseGrowth = 0.01 * (resources.population > 0 ? 1 : 0);
@@ -82,7 +142,10 @@ const App: React.FC = () => {
       const effectiveBuildings = b.baseCost.workers > 0 
         ? b.assignedWorkers / b.baseCost.workers
         : b.count;
-      return total + (b.production.population || 0) * effectiveBuildings;
+      
+      // Less aggressive multiplier for population to avoid explosion
+      const multiplier = Math.pow(1.02, b.count); 
+      return total + (b.production.population || 0) * effectiveBuildings * multiplier;
     }, 0);
     return buildingGrowth + baseGrowth;
   }, [buildings, resources.population]);
@@ -130,10 +193,10 @@ const App: React.FC = () => {
     const chance = Math.random();
     setResources(prev => ({
       ...prev,
-      gold: prev.gold + 1,
+      gold: prev.gold + 1 + (prev.gold * 0.01), // Manual gather also scales slightly with wealth
       maxLand: (prev.land >= prev.maxLand && chance > 0.98) ? prev.maxLand + 1 : prev.maxLand,
       land: (prev.land < prev.maxLand && chance > 0.8) ? prev.land + 1 : prev.land,
-      science: (chance > 0.6) ? prev.science + 1 : prev.science
+      science: (chance > 0.6) ? prev.science + 1 + (prev.science * 0.005) : prev.science
     }));
   };
 
@@ -287,10 +350,16 @@ const App: React.FC = () => {
       const base64 = await generateEmpireSnapshot({
          resources, era, buildings, technologies: unlockedTechs, gameTime, climate
       }, dominantStyle);
-      setSnapshotImage(base64);
+      
+      if (base64) {
+        setSnapshotImage(base64);
+      } else {
+        addLog("Ressamlar görüntü oluşturamadı (API Hatası).", "warning");
+      }
     } catch (e) {
       console.error(e);
       setSnapshotImage(null);
+      addLog("Görüntü servisi şu an kullanılamıyor.", "warning");
     } finally {
       setIsGeneratingSnapshot(false);
     }
@@ -298,6 +367,8 @@ const App: React.FC = () => {
 
   // --- Game Loop ---
   useEffect(() => {
+    if (!isLoaded) return;
+
     const interval = setInterval(() => {
       if (showEraTransition) return;
 
@@ -332,9 +403,13 @@ const App: React.FC = () => {
             ? b.assignedWorkers / b.baseCost.workers
             : b.count;
            
-           income += (b.production.gold || 0) * effectiveBuildings;
-           scienceIncome += (b.production.science || 0) * effectiveBuildings;
-           popGrowth += (b.production.population || 0) * effectiveBuildings;
+           // Apply Exponential Growth Logic Here
+           const efficiencyMult = getEfficiencyMultiplier(b.count);
+           const popMult = Math.pow(1.02, b.count);
+
+           income += (b.production.gold || 0) * effectiveBuildings * efficiencyMult;
+           scienceIncome += (b.production.science || 0) * effectiveBuildings * efficiencyMult;
+           popGrowth += (b.production.population || 0) * effectiveBuildings * popMult;
         });
 
         return {
@@ -395,7 +470,7 @@ const App: React.FC = () => {
     }, TICK_RATE_MS);
 
     return () => clearInterval(interval);
-  }, [resources.population, buildings, era, activeCrisis, showEraTransition, resources.gold, nextEraInfo]);
+  }, [isLoaded, resources.population, buildings, era, activeCrisis, showEraTransition, resources.gold, nextEraInfo, getEfficiencyMultiplier]);
 
 
   // --- Render Helpers ---
@@ -412,6 +487,9 @@ const App: React.FC = () => {
                </div>
                <div className="flex items-center gap-1 bg-gray-800/50 px-2 py-1 rounded border border-gray-700">
                  <Pickaxe size={12} className="text-gray-400"/> Yıl {1000 + Math.floor(gameTime / 5)}
+               </div>
+               <div className="flex items-center gap-1 bg-gray-800/50 px-2 py-1 rounded border border-gray-700" title="Oyun otomatik kaydediliyor">
+                 <Save size={12} className="text-green-500 animate-pulse-slow"/>
                </div>
            </div>
         </div>
@@ -440,6 +518,8 @@ const App: React.FC = () => {
         </div>
      </header>
   );
+
+  if (!isLoaded) return <div className="h-screen bg-black flex items-center justify-center text-gray-500">Yükleniyor...</div>;
 
   return (
     <div className="h-screen bg-gray-950 text-gray-200 font-sans overflow-hidden flex flex-col">

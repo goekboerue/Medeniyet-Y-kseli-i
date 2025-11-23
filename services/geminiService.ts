@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { GameState, Era, Crisis, BuildingStyle } from "../types";
 
@@ -85,48 +86,43 @@ export const generateCrisisLog = async (crisis: Crisis, solved: boolean): Promis
 };
 
 export const generateEmpireSnapshot = async (gameState: GameState, dominantStyle: BuildingStyle): Promise<string | null> => {
+  if (!process.env.API_KEY) {
+      console.error("Image generation skipped: No API Key.");
+      return null;
+  }
+
   try {
     const buildingsList = gameState.buildings
       .filter(b => b.count > 0)
-      .map(b => `${b.count} adet ${b.name}`)
+      .map(b => `${b.count} ${b.name}`)
       .join(', ');
 
     let stylePrompt = "";
     if (dominantStyle === BuildingStyle.MILITARY) {
-      stylePrompt = "The atmosphere is militaristic, fortified, strict, and powerful. Banners, weapons, and defenses are visible.";
+      stylePrompt = "Strong fortress walls, military banners, disciplined, dark and red tones.";
     } else if (dominantStyle === BuildingStyle.ECONOMIC) {
-      stylePrompt = "The atmosphere is wealthy, bustling, golden, and prosperous. Markets, trade goods, and luxury are visible.";
+      stylePrompt = "Busy markets, golden rooftops, trade caravans, rich and amber tones.";
     } else {
-      stylePrompt = "The atmosphere is balanced and peaceful.";
+      stylePrompt = "Peaceful village, balanced architecture, harmonious colors.";
     }
 
+    // Simplified prompt to avoid safety filters and ensure better model understanding for "digital art"
     const prompt = `
-      A highly detailed, photorealistic wide-angle aerial shot of a civilization during the ${gameState.era} era.
-      
-      Climate/Biome: ${gameState.climate}. The environment should strictly reflect this climate.
-      
-      Visible buildings in the landscape: ${buildingsList}.
-      
-      Style & Atmosphere: ${stylePrompt}
-      
-      Lighting: Cinematic, golden hour or dramatic lighting suitable for the era.
-      If Tribal: Campfires, nature, tents. 
-      If Agricultural: Green fields (or snowy/sandy based on climate), stone structures, medieval feel.
-      If Industrial: Smoke, brick factories, steel, steam, Victorian or early modern feel.
-      If Technological: Neon lights, glass skyscrapers, futuristic drones, cyberpunk aesthetic.
-      
-      Make it look like a screenshot from a high-budget strategy game or a movie.
+      Digital concept art of a civilization city. 
+      Era: ${gameState.era}. 
+      Climate: ${gameState.climate}. 
+      Buildings visible: ${buildingsList || "Small settlement"}.
+      Atmosphere: ${stylePrompt}.
+      High quality, detailed, isometric view or wide angle.
     `;
 
-    // Use gemini-2.5-flash-image via generateContent for better availability
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [{ text: prompt }]
       },
-      config: {
-        // Note: responseMimeType is not supported for this model
-      }
+      // Note: gemini-2.5-flash-image does NOT support responseMimeType or responseSchema in config
+      config: {}
     });
 
     if (response.candidates && response.candidates.length > 0) {
@@ -137,10 +133,10 @@ export const generateEmpireSnapshot = async (gameState: GameState, dominantStyle
       }
     }
     
+    console.warn("No image data found in response parts.");
     return null;
   } catch (error) {
     console.error("Image generation error:", error);
-    // Return null to let UI handle the fallback
     return null;
   }
 };
