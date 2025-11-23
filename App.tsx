@@ -66,17 +66,41 @@ const App: React.FC = () => {
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-        if (parsed.resources) setResources({ ...INITIAL_RESOURCES, ...parsed.resources });
+        
+        // Resources Migration: Ensure defaults for new fields like 'soldiers'
+        if (parsed.resources) {
+          setResources(prev => ({ 
+            ...INITIAL_RESOURCES, 
+            ...parsed.resources,
+            soldiers: typeof parsed.resources.soldiers === 'number' ? parsed.resources.soldiers : 0
+          }));
+        }
+
         if (parsed.unlockedTechs) setUnlockedTechs(parsed.unlockedTechs);
         if (parsed.futureTechLevel) setFutureTechLevel(parsed.futureTechLevel);
         if (parsed.era) setEra(parsed.era);
         if (parsed.climate) setClimate(parsed.climate);
         if (parsed.gameTime) setGameTime(parsed.gameTime);
         if (parsed.logs) setLogs(parsed.logs);
-        if (parsed.rivals && parsed.rivals.length > 0) setRivals(parsed.rivals);
-        else setRivals(generateRandomRivals());
         
-        // Merge saved buildings with definitions to ensure structure matches
+        // Rivals Migration: Ensure new fields like 'cooldownEnd' exist
+        if (parsed.rivals && Array.isArray(parsed.rivals) && parsed.rivals.length > 0) {
+            const migratedRivals = parsed.rivals.map((r: any) => ({
+                ...r,
+                cooldownEnd: typeof r.cooldownEnd === 'number' ? r.cooldownEnd : 0,
+                lastInteractionTurn: typeof r.lastInteractionTurn === 'number' ? r.lastInteractionTurn : 0,
+                attitude: r.attitude || 'DEFENSIVE',
+                relation: r.relation || RelationStatus.NEUTRAL,
+                strength: typeof r.strength === 'number' ? r.strength : 10,
+                wealth: typeof r.wealth === 'number' ? r.wealth : 50,
+                era: r.era || Era.TRIBAL
+            }));
+            setRivals(migratedRivals);
+        } else {
+            setRivals(generateRandomRivals());
+        }
+        
+        // Buildings Migration
         if (parsed.buildings) {
           setBuildings(prev => prev.map(def => {
             const savedB = parsed.buildings.find((p: any) => p.id === def.id);
